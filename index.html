@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Menu di Siman</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --kaya-blue:#1B4B6B;
+    --punda-yellow:#E0A72E;
+    --otro-coral:#E8637A;
+    --paper:#FBF6EC;
+    --ink:#24211D;
+    --sea-green:#2F7A6B;
+    --line:#E4DAC6;
+    --card:#FFFFFF;
+    --muted:#8A8270;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .skyline{
+    display:flex;
+    align-items:flex-end;
+    height:34px;
+    gap:3px;
+    padding:0 16px;
+  }
+  .skyline span{
+    display:block;
+    flex:1;
+    max-width:26px;
+    border-radius:3px 3px 0 0;
+  }
+  header{
+    background:var(--kaya-blue);
+    color:var(--paper);
+    padding-top:22px;
+  }
+  header .inner{
+    max-width:880px;
+    margin:0 auto;
+    padding:4px 20px 22px;
+  }
+  header h1{
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:2rem;
+    margin:6px 0 2px;
+    letter-spacing:0.3px;
+  }
+  header p{
+    margin:0;
+    color:#CFE0EA;
+    font-size:0.95rem;
+  }
+  nav.tabs{
+    max-width:880px;
+    margin:0 auto;
+    display:flex;
+    gap:8px;
+    padding:14px 20px 0;
+  }
+  nav.tabs button{
+    flex:1;
+    padding:11px 14px;
+    border:none;
+    border-radius:10px 10px 0 0;
+    background:rgba(255,255,255,0.14);
+    color:var(--paper);
+    font-size:0.95rem;
+    font-weight:600;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  nav.tabs button.active{
+    background:var(--paper);
+    color:var(--kaya-blue);
+  }
+  main{
+    max-width:880px;
+    margin:0 auto;
+    padding:24px 20px 60px;
+  }
+  .view{display:none;}
+  .view.active{display:block;}
+  h2{
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:1.4rem;
+    margin:28px 0 12px;
+    color:var(--kaya-blue);
+  }
+  h2:first-child{margin-top:0;}
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px;
+    margin-bottom:12px;
+  }
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  label{
+    font-size:0.78rem;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+    color:var(--muted);
+    display:block;
+    margin-bottom:4px;
+  }
+  input[type=text], input[type=number], input[type=tel], select{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:0.95rem;
+    background:#fff;
+    color:var(--ink);
+  }
+  .field{flex:1;min-width:120px;}
+  button.primary{
+    background:var(--sea-green);
+    color:#fff;
+    border:none;
+    padding:10px 18px;
+    border-radius:8px;
+    font-weight:600;
+    cursor:pointer;
+    font-size:0.92rem;
+  }
+  button.primary:hover{filter:brightness(1.06);}
+  button.primary:disabled{background:#B7C9C3;cursor:not-allowed;}
+  button.secondary{
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:8px 14px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:0.88rem;
+  }
+  button.danger{
+    background:transparent;
+    border:1px solid var(--otro-coral);
+    color:var(--otro-coral);
+    padding:6px 10px;
+    border-radius:8px;
+    cursor:pointer;
+    font-size:0.8rem;
+  }
+  .item-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:11px 0;
+    border-bottom:1px solid var(--line);
+    gap:10px;
+  }
+  .item-row:last-child{border-bottom:none;}
+  .item-name{font-weight:600;}
+  .item-cat{color:var(--muted);font-size:0.8rem;}
+  .badge{
+    font-size:0.72rem;
+    font-weight:700;
+    padding:3px 9px;
+    border-radius:20px;
+    white-space:nowrap;
+  }
+  .badge.available{background:#DCEEE8;color:var(--sea-green);}
+  .badge.unavailable{background:#F1E9DB;color:var(--muted);}
+  .toggle{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    cursor:pointer;
+    font-size:0.85rem;
+    user-select:none;
+  }
+  .qty-stepper{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .qty-stepper button{
+    width:28px;height:28px;
+    border-radius:6px;
+    border:1px solid var(--line);
+    background:#fff;
+    cursor:pointer;
+    font-size:1rem;
+    line-height:1;
+  }
+  .cart-summary{
+    position:sticky;
+    bottom:0;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px 12px 0 0;
+    padding:14px 16px;
+    margin-top:16px;
+    box-shadow:0 -4px 14px rgba(0,0,0,0.06);
+  }
+  .total-line{
+    display:flex;
+    justify-content:space-between;
+    font-weight:700;
+    font-size:1.05rem;
+    margin-bottom:10px;
+  }
+  .order-card{
+    border-left:4px solid var(--punda-yellow);
+  }
+  .order-card.status-Klaar{border-left-color:var(--sea-green);}
+  .order-card.status-Afgehaald{border-left-color:var(--muted);}
+  .order-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:6px;
+  }
+  .order-items{font-size:0.88rem;color:#4B463B;margin:4px 0;}
+  .muted{color:var(--muted);font-size:0.85rem;}
+  .empty{
+    text-align:center;
+    padding:30px 10px;
+    color:var(--muted);
+    font-size:0.92rem;
+  }
+  table{width:100%;border-collapse:collapse;font-size:0.9rem;}
+  table th, table td{text-align:left;padding:7px 4px;border-bottom:1px solid var(--line);}
+  table th{color:var(--muted);font-weight:600;font-size:0.78rem;text-transform:uppercase;}
+  .pill-select{
+    display:flex;gap:6px;flex-wrap:wrap;
+  }
+  .pill-select button{
+    padding:8px 13px;
+    border-radius:20px;
+    border:1px solid var(--line);
+    background:#fff;
+    cursor:pointer;
+    font-size:0.86rem;
+  }
+  .pill-select button.selected{
+    background:var(--kaya-blue);
+    border-color:var(--kaya-blue);
+    color:#fff;
+  }
+  .loading{padding:40px;text-align:center;color:var(--muted);}
+  .toast{
+    position:fixed;
+    top:16px;left:50%;
+    transform:translateX(-50%);
+    background:var(--ink);
+    color:#fff;
+    padding:10px 18px;
+    border-radius:8px;
+    font-size:0.88rem;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .25s;
+    z-index:50;
+  }
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="skyline" id="skyline"></div>
+  <div class="inner" style="display:flex;align-items:center;gap:14px;">
+    <img id="header-logo" style="display:none;width:52px;height:52px;border-radius:10px;object-fit:cover;flex:0 0 auto;">
+    <div>
+      <h1 style="margin:6px 0 2px;">Menu di Siman</h1>
+      <p>Digitale menukaart &amp; bestellen — winkel en klant in één app</p>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button id="tab-winkel" class="active">Winkel</button>
+    <button id="tab-klant">Klant</button>
+    <button id="tab-dashboard">Dashboard</button>
+  </nav>
+</header>
+
+<main>
+  <div id="loading" class="loading">Bezig met laden…</div>
+
+  <section id="view-winkel" class="view">
+
+    <h2>Link voor klanten</h2>
+    <div class="card">
+      <p class="muted" style="margin:0 0 10px;">Stuur onderstaande link naar klanten. Zij zien dan alleen menu, bestellen en hun eigen tegoed — geen toegang tot Winkel-beheer of Dashboard.</p>
+      <div class="row">
+        <input type="text" id="klant-link" readonly style="flex:1;">
+        <button class="secondary" id="btn-copy-klant-link">Kopieer link</button>
+      </div>
+    </div>
+
+    <h2>Winkelprofiel</h2>
+    <div class="card">
+      <div class="row" style="align-items:flex-start;">
+        <div style="flex:0 0 auto;">
+          <label>Logo</label>
+          <div id="logo-preview-wrap" style="width:84px;height:84px;border-radius:12px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;">
+            <span class="muted" id="logo-placeholder" style="font-size:0.7rem;text-align:center;">Geen logo</span>
+            <img id="logo-preview" style="display:none;width:100%;height:100%;object-fit:cover;">
+          </div>
+          <div class="row" style="margin-top:6px;gap:6px;">
+            <label class="secondary" for="s-logo-input" style="border:1px solid var(--line);padding:6px 10px;border-radius:8px;cursor:pointer;font-size:0.78rem;background:#fff;">Kies bestand</label>
+            <button class="danger" id="btn-remove-logo" type="button">Verwijder</button>
+          </div>
+          <input type="file" id="s-logo-input" accept="image/*" style="display:none;">
+        </div>
+        <div class="field" style="min-width:220px;">
+          <div class="row">
+            <div class="field">
+              <label for="s-naam">Winkelnaam</label>
+              <input type="text" id="s-naam" placeholder="bv. Tienda Kaya Blou">
+            </div>
+            <div class="field">
+              <label for="s-tel">Telefoon</label>
+              <input type="tel" id="s-tel" placeholder="Telefoonnummer winkel">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div class="field">
+          <label for="s-adres">Adres</label>
+          <input type="text" id="s-adres" placeholder="Adres">
+        </div>
+        <div class="field">
+          <label for="s-uren">Openingstijden</label>
+          <input type="text" id="s-uren" placeholder="bv. Ma–Za 8:00–18:00">
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div class="field">
+          <label for="s-beschrijving">Beschrijving</label>
+          <input type="text" id="s-beschrijving" placeholder="Korte omschrijving voor klanten">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <button class="primary" id="btn-save-store">Profiel opslaan</button>
+      </div>
+    </div>
+
+    <h2>Beveiliging</h2>
+    <div class="card">
+      <p class="muted" style="margin:0 0 10px;">Zet een wachtwoord op de Winkel-tab en het Dashboard. Dit is een lichte drempel tegen per ongeluk klikken — geen volwaardige beveiliging tegen iemand die echt probeert in te breken.</p>
+      <div class="row">
+        <div class="field">
+          <label for="s-pin">Wachtwoord</label>
+          <input type="password" id="s-pin" placeholder="Laat leeg voor geen wachtwoord">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <button class="primary" id="btn-save-pin">Wachtwoord opslaan</button>
+      </div>
+    </div>
+
+    <h2>Inkopen</h2>
+    <p class="muted">Hou hier bij welke producten je inkoopt en voor hoeveel — dit bepaalt de inkoopkosten op het Dashboard.</p>
+    <div class="card">
+      <div class="row">
+        <div class="field">
+          <label for="p-product">Product</label>
+          <input type="text" id="p-product" placeholder="bv. Vlees, groente, verpakking">
+        </div>
+        <div class="field" style="max-width:130px;">
+          <label for="p-bedrag">Bedrag (ƒ)</label>
+          <input type="number" id="p-bedrag" min="0" step="0.25" placeholder="0.00">
+        </div>
+        <div class="field" style="max-width:160px;">
+          <label for="p-datum">Datum</label>
+          <input type="text" id="p-datum" placeholder="jjjj-mm-dd">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <button class="primary" id="btn-add-purchase">Inkoop toevoegen</button>
+      </div>
+    </div>
+    <div class="card">
+      <table id="purchases-table">
+        <thead><tr><th>Datum</th><th>Product</th><th>Bedrag</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty" id="purchases-empty" style="display:none;">Nog geen inkopen geregistreerd.</div>
+      <div class="row" style="justify-content:flex-end;margin-top:6px;" id="purchases-total-row">
+        <strong>Totaal inkoopkosten: <span id="purchases-total">ƒ 0.00</span></strong>
+      </div>
+    </div>
+
+    <h2>Menu beheren</h2>
+    <div class="card">
+      <div class="row">
+        <div class="field">
+          <label for="w-naam">Naam</label>
+          <input type="text" id="w-naam" placeholder="bv. Kesio, Pastechi">
+        </div>
+        <div class="field">
+          <label for="w-cat">Categorie</label>
+          <input type="text" id="w-cat" placeholder="bv. Hapjes">
+        </div>
+        <div class="field" style="max-width:120px;">
+          <label for="w-prijs">Verkoopprijs (ƒ)</label>
+          <input type="number" id="w-prijs" min="0" step="0.25" placeholder="0.00">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <button class="primary" id="btn-add-item">Item toevoegen</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <label for="excel-input">Menu importeren uit Excel</label>
+      <p class="muted" style="margin:0 0 10px;">Herkent kolommen zoals <strong>naam</strong>/eten/gerecht, <strong>categorie</strong>/soort/type en <strong>prijs</strong>/bedrag — ongeacht hoofdletters. Geïmporteerde items staan standaard op niet-beschikbaar — vink hieronder aan wat deze week te koop is.</p>
+      <div class="row">
+        <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" style="flex:1;">
+        <button class="secondary" id="btn-import-excel">Importeren</button>
+      </div>
+    </div>
+
+    <div class="card row" style="justify-content:space-between;">
+      <span class="muted">Snel alles aan-/uitvinken voor deze week:</span>
+      <div class="row" style="gap:8px;">
+        <button class="secondary" id="btn-select-all">Alles beschikbaar</button>
+        <button class="secondary" id="btn-select-none">Alles niet beschikbaar</button>
+      </div>
+    </div>
+
+    <div class="card" id="items-list"></div>
+
+    <h2>Bestellingen</h2>
+    <div id="orders-list"></div>
+
+    <h2>Tegoed beheren</h2>
+    <p class="muted">Klanten worden herkend op telefoonnummer, zodat je altijd precies weet wie wel of geen tegoed heeft — ook als twee klanten dezelfde naam hebben.</p>
+    <div class="card">
+      <div class="row">
+        <div class="field">
+          <label for="c-naam">Klantnaam</label>
+          <input type="text" id="c-naam" placeholder="Naam van klant">
+        </div>
+        <div class="field">
+          <label for="c-tel">Telefoonnummer</label>
+          <input type="tel" id="c-tel" placeholder="Telefoonnummer (unieke sleutel)">
+        </div>
+        <div class="field" style="max-width:140px;">
+          <label for="c-bedrag">Bedrag toevoegen (ƒ)</label>
+          <input type="number" id="c-bedrag" min="0" step="1" placeholder="0.00">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <button class="primary" id="btn-topup">Opslaan / tegoed toevoegen</button>
+        <button class="secondary" id="btn-clear-credit-form" type="button">Nieuw formulier</button>
+      </div>
+      <p class="muted" id="edit-mode-note" style="display:none;margin-top:8px;">Je bewerkt nu een bestaande klant — laat "Bedrag toevoegen" op 0 om alleen de naam bij te werken.</p>
+    </div>
+    <div class="card">
+      <table id="credit-table">
+        <thead><tr><th>Klant</th><th>Telefoon</th><th>Tegoed</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty" id="credit-empty" style="display:none;">Nog geen klanten met tegoed.</div>
+    </div>
+
+  </section>
+
+  <section id="view-klant" class="view">
+
+    <h2>Over de winkel</h2>
+    <div class="card" id="store-info-card"></div>
+
+    <h2>Jouw gegevens</h2>
+    <div class="card">
+      <div class="row">
+        <div class="field">
+          <label for="k-naam">Jouw naam</label>
+          <input type="text" id="k-naam" placeholder="Naam">
+        </div>
+        <div class="field">
+          <label for="k-tel">Telefoon</label>
+          <input type="tel" id="k-tel" placeholder="Telefoonnummer (voor bestelling en tegoed)">
+        </div>
+      </div>
+    </div>
+
+    <h2>Beschikbaar deze week</h2>
+    <div class="card" id="klant-items"></div>
+
+    <div class="cart-summary" id="cart-summary" style="display:none;">
+      <div class="total-line"><span>Totaal</span><span id="cart-total">ƒ 0.00</span></div>
+      <label>Betaalmethode</label>
+      <div class="pill-select" id="payment-select">
+        <button data-val="Contant" class="selected">Contant</button>
+        <button data-val="Bank">Via bank</button>
+        <button data-val="Credit">Met tegoed</button>
+      </div>
+      <p class="muted" id="credit-balance-note" style="display:none;"></p>
+      <div class="row" style="margin-top:12px;">
+        <button class="primary" id="btn-order" style="flex:1;">Bestelling plaatsen</button>
+      </div>
+    </div>
+
+    <h2>Mijn bestellingen</h2>
+    <div id="my-orders"></div>
+
+  </section>
+
+  <section id="view-dashboard" class="view">
+
+    <h2>Overzicht</h2>
+    <div class="row" style="gap:12px;">
+      <div class="card" style="flex:1;min-width:140px;">
+        <div class="muted">Omzet</div>
+        <div style="font-size:1.4rem;font-weight:700;color:var(--kaya-blue);" id="dash-omzet">ƒ 0.00</div>
+      </div>
+      <div class="card" style="flex:1;min-width:140px;">
+        <div class="muted">Inkoopkosten</div>
+        <div style="font-size:1.4rem;font-weight:700;color:var(--otro-coral);" id="dash-kosten">ƒ 0.00</div>
+      </div>
+      <div class="card" style="flex:1;min-width:140px;">
+        <div class="muted">Winst</div>
+        <div style="font-size:1.4rem;font-weight:700;color:var(--sea-green);" id="dash-winst">ƒ 0.00</div>
+      </div>
+    </div>
+    <p class="muted" id="dash-note" style="margin-top:6px;"></p>
+
+    <h2>Per klant</h2>
+    <div class="card">
+      <table id="dash-klant-table">
+        <thead><tr><th>Klant</th><th>Telefoon</th><th>Bestellingen</th><th>Totaal besteed</th><th>Tegoed</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty" id="dash-klant-empty" style="display:none;">Nog geen bestellingen om te tonen.</div>
+    </div>
+
+  </section>
+</main>
+
+<div id="pin-overlay" style="display:none;position:fixed;inset:0;background:rgba(36,33,29,0.55);z-index:60;align-items:center;justify-content:center;padding:20px;">
+  <div class="card" style="max-width:320px;width:100%;margin:0;">
+    <h2 style="margin-top:0;">Winkel-toegang</h2>
+    <p class="muted" style="margin:0 0 10px;">Voer het wachtwoord in om bij Winkel-beheer of Dashboard te komen.</p>
+    <input type="password" id="pin-input" placeholder="Wachtwoord">
+    <p class="muted" id="pin-error" style="color:var(--otro-coral);display:none;margin:8px 0 0;">Onjuist wachtwoord.</p>
+    <div class="row" style="margin-top:12px;">
+      <button class="primary" id="pin-submit" style="flex:1;">Ontgrendel</button>
+      <button class="secondary" id="pin-cancel">Annuleer</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ---------- opslag: gebruikt Claude's ingebouwde opslag indien beschikbaar,
+// anders (bv. gehost op Cloudflare Pages) valt terug op Supabase ----------
+if(!window.storage){
+  const SUPABASE_URL = 'https://yyxbgpwdcmkfpzdzwxua.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_ebuXozx5GMOHkBgsK03ACQ_YTZYAsri';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  window.storage = {
+    async get(key){
+      const { data, error } = await sb.from('app_data').select('value').eq('key', key).maybeSingle();
+      if(error) throw error;
+      if(!data) return null;
+      return { key, value: JSON.stringify(data.value) };
+    },
+    async set(key, value){
+      const parsed = JSON.parse(value);
+      const { error } = await sb.from('app_data').upsert({ key, value: parsed, updated_at: new Date().toISOString() });
+      if(error) throw error;
+      return { key, value };
+    }
+  };
+}
+
+const skylineColors = ['#1B4B6B','#E0A72E','#E8637A','#2F7A6B','#C8874A','#3E6E8E','#D9527A'];
+const skylineHeights = [22,30,18,34,24,28,20,32,26];
+const sk = document.getElementById('skyline');
+skylineHeights.forEach((h,i)=>{
+  const b = document.createElement('span');
+  b.style.height = h+'px';
+  b.style.background = skylineColors[i % skylineColors.length];
+  sk.appendChild(b);
+});
+
+let menuItems = [];
+let orders = [];
+let creditBalances = {}; // phone -> { name, balance }
+let storeInfo = { name:'', phone:'', address:'', hours:'', description:'', logo:'' };
+let purchases = []; // { id, product, amount, date }
+let cart = {}; // itemId -> qty
+let selectedPayment = 'Contant';
+
+function normPhone(p){ return (p||'').replace(/\s+/g,'').trim(); }
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function money(n){ return 'ƒ ' + Number(n).toFixed(2); }
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+async function loadAll(){
+  try{
+    const [m, o, c, s, p] = await Promise.all([
+      window.storage.get('menu-items', true).catch(()=>null),
+      window.storage.get('orders', true).catch(()=>null),
+      window.storage.get('credit-balances', true).catch(()=>null),
+      window.storage.get('store-info', true).catch(()=>null),
+      window.storage.get('purchases', true).catch(()=>null),
+    ]);
+    menuItems = m ? JSON.parse(m.value) : [];
+    orders = o ? JSON.parse(o.value) : [];
+    creditBalances = c ? JSON.parse(c.value) : {};
+    if(s) storeInfo = JSON.parse(s.value);
+    purchases = p ? JSON.parse(p.value) : [];
+  }catch(e){
+    console.error('Laden mislukt', e);
+    showToast('Laden mislukt — probeer de pagina te vernieuwen');
+  }
+  document.getElementById('loading').style.display = 'none';
+  renderAll();
+}
+
+async function saveMenu(){ await window.storage.set('menu-items', JSON.stringify(menuItems), true); }
+async function saveOrders(){ await window.storage.set('orders', JSON.stringify(orders), true); }
+async function saveCredit(){ await window.storage.set('credit-balances', JSON.stringify(creditBalances), true); }
+async function saveStoreInfo(){ await window.storage.set('store-info', JSON.stringify(storeInfo), true); }
+async function savePurchases(){ await window.storage.set('purchases', JSON.stringify(purchases), true); }
+async function fetchWinkelPin(){
+  try{
+    const p = await window.storage.get('store-pin', true).catch(()=>null);
+    return p ? (JSON.parse(p.value).pin || '') : '';
+  }catch(e){
+    return '';
+  }
+}
+
+function renderAll(){
+  renderItemsList();
+  renderOrdersList();
+  renderCreditTable();
+  renderKlantItems();
+  renderCart();
+  renderMyOrders();
+  renderStoreForm();
+  renderStoreInfoCard();
+  renderPurchasesTable();
+}
+
+// ---------- WINKEL: inkopen ----------
+function todayStr(){
+  const d = new Date();
+  return d.toISOString().slice(0,10);
+}
+
+function renderPurchasesTable(){
+  const tbody = document.querySelector('#purchases-table tbody');
+  document.getElementById('purchases-empty').style.display = purchases.length ? 'none' : 'block';
+  const sorted = [...purchases].sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  tbody.innerHTML = sorted.map(p=>`
+    <tr>
+      <td>${escapeHtml(p.date||'')}</td>
+      <td>${escapeHtml(p.product)}</td>
+      <td>${money(p.amount)}</td>
+      <td><button class="danger" data-id="${p.id}" data-action="delete-purchase" style="padding:5px 10px;font-size:0.78rem;">Verwijder</button></td>
+    </tr>
+  `).join('');
+  const total = purchases.reduce((sum,p)=>sum + p.amount, 0);
+  document.getElementById('purchases-total').textContent = money(total);
+}
+
+document.getElementById('btn-add-purchase').addEventListener('click', async ()=>{
+  const product = document.getElementById('p-product').value.trim();
+  const bedrag = parseFloat(document.getElementById('p-bedrag').value);
+  let datum = document.getElementById('p-datum').value.trim();
+  if(!datum) datum = todayStr();
+  if(!product || isNaN(bedrag) || bedrag <= 0){
+    showToast('Vul een product en geldig bedrag in');
+    return;
+  }
+  purchases.push({id: uid(), product, amount: bedrag, date: datum});
+  await savePurchases();
+  document.getElementById('p-product').value = '';
+  document.getElementById('p-bedrag').value = '';
+  document.getElementById('p-datum').value = '';
+  renderPurchasesTable();
+  showToast('Inkoop toegevoegd');
+});
+
+document.querySelector('#purchases-table').addEventListener('click', async (e)=>{
+  if(e.target.dataset.action === 'delete-purchase'){
+    const id = e.target.dataset.id;
+    purchases = purchases.filter(p=>p.id !== id);
+    await savePurchases();
+    renderPurchasesTable();
+  }
+});
+
+// ---------- WINKEL: profiel ----------
+function renderStoreForm(){
+  document.getElementById('s-naam').value = storeInfo.name || '';
+  document.getElementById('s-tel').value = storeInfo.phone || '';
+  document.getElementById('s-adres').value = storeInfo.address || '';
+  document.getElementById('s-uren').value = storeInfo.hours || '';
+  document.getElementById('s-beschrijving').value = storeInfo.description || '';
+  renderLogoPreview();
+}
+
+document.getElementById('btn-save-pin').addEventListener('click', async ()=>{
+  const pin = document.getElementById('s-pin').value;
+  await window.storage.set('store-pin', JSON.stringify({pin}), true);
+  winkelPin = pin;
+  document.getElementById('s-pin').value = pin;
+  showToast(pin ? 'Wachtwoord opgeslagen' : 'Wachtwoord verwijderd — Winkel-tab is nu open zonder wachtwoord');
+});
+
+function renderLogoPreview(){
+  const img = document.getElementById('logo-preview');
+  const placeholder = document.getElementById('logo-placeholder');
+  const headerLogo = document.getElementById('header-logo');
+  if(storeInfo.logo){
+    img.src = storeInfo.logo;
+    img.style.display = 'block';
+    placeholder.style.display = 'none';
+    headerLogo.src = storeInfo.logo;
+    headerLogo.style.display = 'block';
+  } else {
+    img.style.display = 'none';
+    placeholder.style.display = 'block';
+    headerLogo.style.display = 'none';
+  }
+}
+
+function resizeImageToDataUrl(file, maxSize){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Kon bestand niet lezen'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Kon afbeelding niet laden'));
+      img.onload = () => {
+        let { width, height } = img;
+        if(width > height && width > maxSize){
+          height = Math.round(height * (maxSize / width));
+          width = maxSize;
+        } else if(height > maxSize){
+          width = Math.round(width * (maxSize / height));
+          height = maxSize;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById('s-logo-input').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    storeInfo.logo = await resizeImageToDataUrl(file, 240);
+    renderLogoPreview();
+    showToast('Logo klaar — klik op "Profiel opslaan" om te bewaren');
+  }catch(err){
+    console.error('Logo verwerken mislukt', err);
+    showToast('Kon deze afbeelding niet verwerken');
+  }
+  e.target.value = '';
+});
+
+document.getElementById('btn-remove-logo').addEventListener('click', async ()=>{
+  storeInfo.logo = '';
+  renderLogoPreview();
+  await saveStoreInfo();
+  renderStoreInfoCard();
+  showToast('Logo verwijderd');
+});
+
+document.getElementById('btn-save-store').addEventListener('click', async ()=>{
+  storeInfo = {
+    name: document.getElementById('s-naam').value.trim(),
+    phone: document.getElementById('s-tel').value.trim(),
+    address: document.getElementById('s-adres').value.trim(),
+    hours: document.getElementById('s-uren').value.trim(),
+    description: document.getElementById('s-beschrijving').value.trim(),
+    logo: storeInfo.logo || '',
+  };
+  await saveStoreInfo();
+  renderStoreInfoCard();
+  renderLogoPreview();
+  showToast('Winkelprofiel opgeslagen');
+});
+
+function renderStoreInfoCard(){
+  const wrap = document.getElementById('store-info-card');
+  if(!storeInfo.name && !storeInfo.description && !storeInfo.logo){
+    wrap.innerHTML = '<div class="empty">De winkel heeft nog geen profiel ingevuld.</div>';
+    return;
+  }
+  const logoHtml = storeInfo.logo
+    ? `<img src="${storeInfo.logo}" style="width:64px;height:64px;border-radius:12px;object-fit:cover;float:left;margin-right:12px;">`
+    : '';
+  wrap.innerHTML = `
+    ${logoHtml}
+    <div class="item-name" style="font-size:1.1rem;">${escapeHtml(storeInfo.name || 'Winkel')}</div>
+    ${storeInfo.description ? `<p style="margin:6px 0;">${escapeHtml(storeInfo.description)}</p>` : ''}
+    <p class="muted" style="margin:2px 0;">${escapeHtml(storeInfo.address || '')}</p>
+    <p class="muted" style="margin:2px 0;">${storeInfo.hours ? 'Open: ' + escapeHtml(storeInfo.hours) : ''}</p>
+    <p class="muted" style="margin:2px 0;">${storeInfo.phone ? 'Tel: ' + escapeHtml(storeInfo.phone) : ''}</p>
+    <div style="clear:both;"></div>
+  `;
+}
+
+// ---------- WINKEL: Excel-import ----------
+document.getElementById('btn-import-excel').addEventListener('click', async ()=>{
+  const fileInput = document.getElementById('excel-input');
+  const file = fileInput.files[0];
+  if(!file){
+    showToast('Kies eerst een Excel-bestand');
+    return;
+  }
+  try{
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data, {type:'array'});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, {defval:''});
+
+    const naamKeys = ['naam','name','item','product','gerecht','eten','beschrijving'];
+    const catKeys = ['categorie','category','soort','type','groep','sectie'];
+    const prijsKeys = ['prijs','price','bedrag','verkoopprijs','cg','cg.','prijs (ƒ)'];
+
+    function findValue(row, candidateKeys){
+      const rowKeys = Object.keys(row);
+      for(const cand of candidateKeys){
+        const match = rowKeys.find(k => k.toString().trim().toLowerCase() === cand);
+        if(match !== undefined && String(row[match]).trim() !== '') return row[match];
+      }
+      return '';
+    }
+
+    let added = 0;
+    let skippedNoName = 0;
+    rows.forEach(row=>{
+      const naam = String(findValue(row, naamKeys)).trim();
+      if(!naam) { skippedNoName++; return; }
+      const cat = String(findValue(row, catKeys)).trim();
+      const prijsRaw = findValue(row, prijsKeys);
+      const prijs = parseFloat(String(prijsRaw).replace(',', '.').replace(/[^\d.]/g, '')) || 0;
+      menuItems.push({id: uid(), name: naam, category: cat, price: prijs, available: false});
+      added++;
+    });
+
+    if(added === 0){
+      const headers = rows[0] ? Object.keys(rows[0]).join(', ') : '(geen rijen gevonden)';
+      showToast(`Geen items herkend. Kolommen in je bestand: ${headers}`);
+      return;
+    }
+    await saveMenu();
+    renderItemsList();
+    renderKlantItems();
+    fileInput.value = '';
+    showToast(`${added} items geïmporteerd${skippedNoName ? `, ${skippedNoName} rijen overgeslagen zonder naam` : ''} — vink aan wat beschikbaar is`);
+  }catch(e){
+    console.error('Import mislukt', e);
+    showToast('Kon het Excel-bestand niet lezen');
+  }
+});
+
+// ---------- WINKEL: items ----------
+function renderItemsList(){
+  const wrap = document.getElementById('items-list');
+  if(menuItems.length === 0){
+    wrap.innerHTML = '<div class="empty">Nog geen items — voeg hierboven je eerste menu-item toe of importeer een Excel-bestand.</div>';
+    return;
+  }
+  const groups = {};
+  menuItems.forEach(item=>{
+    const cat = item.category || 'Overig';
+    if(!groups[cat]) groups[cat] = [];
+    groups[cat].push(item);
+  });
+
+  wrap.innerHTML = '';
+  Object.keys(groups).forEach(cat=>{
+    const items = groups[cat];
+    const allAvailable = items.every(i=>i.available);
+    const header = document.createElement('div');
+    header.className = 'row';
+    header.style.cssText = 'justify-content:space-between;padding:10px 0 6px;border-bottom:1px solid var(--line);';
+    header.innerHTML = `
+      <strong style="color:var(--kaya-blue);">${escapeHtml(cat)}</strong>
+      <label class="toggle">
+        <input type="checkbox" class="cat-toggle" data-cat="${escapeHtml(cat)}" ${allAvailable?'checked':''}>
+        Alles in deze categorie beschikbaar
+      </label>
+    `;
+    wrap.appendChild(header);
+
+    items.forEach(item=>{
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `
+        <div>
+          <div class="item-name">${escapeHtml(item.name)}</div>
+          <div class="item-cat">${money(item.price)}</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" data-id="${item.id}" class="avail-toggle" ${item.available?'checked':''}>
+          Beschikbaar
+        </label>
+        <button class="danger" data-id="${item.id}" data-action="delete-item">Verwijder</button>
+      `;
+      wrap.appendChild(row);
+    });
+  });
+}
+
+document.getElementById('btn-select-all').addEventListener('click', async ()=>{
+  menuItems.forEach(i=>i.available = true);
+  await saveMenu();
+  renderItemsList();
+  renderKlantItems();
+  showToast('Alle items op beschikbaar gezet');
+});
+
+document.getElementById('btn-select-none').addEventListener('click', async ()=>{
+  menuItems.forEach(i=>i.available = false);
+  await saveMenu();
+  renderItemsList();
+  renderKlantItems();
+  showToast('Alle items op niet-beschikbaar gezet');
+});
+
+document.getElementById('items-list').addEventListener('change', async (e)=>{
+  if(e.target.classList.contains('avail-toggle')){
+    const id = e.target.dataset.id;
+    const item = menuItems.find(i=>i.id===id);
+    if(item){
+      item.available = e.target.checked;
+      await saveMenu();
+      renderItemsList();
+      renderKlantItems();
+    }
+  } else if(e.target.classList.contains('cat-toggle')){
+    const cat = e.target.dataset.cat;
+    const checked = e.target.checked;
+    menuItems.forEach(i=>{
+      if((i.category || 'Overig') === cat) i.available = checked;
+    });
+    await saveMenu();
+    renderItemsList();
+    renderKlantItems();
+  }
+});
+document.getElementById('items-list').addEventListener('click', async (e)=>{
+  if(e.target.dataset.action === 'delete-item'){
+    const id = e.target.dataset.id;
+    menuItems = menuItems.filter(i=>i.id!==id);
+    await saveMenu();
+    renderItemsList();
+    renderKlantItems();
+  }
+});
+
+document.getElementById('btn-add-item').addEventListener('click', async ()=>{
+  const naam = document.getElementById('w-naam').value.trim();
+  const cat = document.getElementById('w-cat').value.trim();
+  const prijs = parseFloat(document.getElementById('w-prijs').value);
+  if(!naam || isNaN(prijs) || prijs < 0){
+    showToast('Vul een naam en geldige prijs in');
+    return;
+  }
+  menuItems.push({id: uid(), name: naam, category: cat, price: prijs, available: true});
+  await saveMenu();
+  document.getElementById('w-naam').value='';
+  document.getElementById('w-cat').value='';
+  document.getElementById('w-prijs').value='';
+  renderItemsList();
+  renderKlantItems();
+  showToast('Item toegevoegd');
+});
+
+// ---------- WINKEL: orders ----------
+const statusFlow = ['Nieuw','In behandeling','Klaar','Afgehaald'];
+
+function renderOrdersList(){
+  const wrap = document.getElementById('orders-list');
+  if(orders.length === 0){
+    wrap.innerHTML = '<div class="empty">Nog geen bestellingen binnengekomen.</div>';
+    return;
+  }
+  wrap.innerHTML = '';
+  [...orders].reverse().forEach(o=>{
+    const el = document.createElement('div');
+    el.className = 'card order-card status-' + o.status;
+    const itemsStr = o.items.map(it=>`${it.qty}× ${escapeHtml(it.name)}`).join(', ');
+    el.innerHTML = `
+      <div class="order-head">
+        <strong>${escapeHtml(o.customer)}</strong>
+        <span class="muted">${new Date(o.timestamp).toLocaleString('nl-NL')}</span>
+      </div>
+      <div class="order-items">${itemsStr}</div>
+      <div class="row" style="justify-content:space-between;">
+        <span class="muted">${escapeHtml(o.phone||'')} · betaling: ${escapeHtml(o.payment)}</span>
+        <strong>${money(o.total)}</strong>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <select data-id="${o.id}" class="status-select">
+          ${statusFlow.map(s=>`<option value="${s}" ${s===o.status?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+    `;
+    wrap.appendChild(el);
+  });
+}
+
+document.getElementById('orders-list').addEventListener('change', async (e)=>{
+  if(e.target.classList.contains('status-select')){
+    const id = e.target.dataset.id;
+    const o = orders.find(x=>x.id===id);
+    if(o){
+      o.status = e.target.value;
+      await saveOrders();
+      renderOrdersList();
+      renderMyOrders();
+    }
+  }
+});
+
+// ---------- WINKEL: credit ----------
+function renderCreditTable(){
+  const tbody = document.querySelector('#credit-table tbody');
+  const phones = Object.keys(creditBalances);
+  document.getElementById('credit-empty').style.display = phones.length ? 'none' : 'block';
+  tbody.innerHTML = phones.map(p=>{
+    const entry = creditBalances[p];
+    return `<tr>
+      <td>${escapeHtml(entry.name||'')}</td>
+      <td>${escapeHtml(p)}</td>
+      <td>${money(entry.balance)}</td>
+      <td><button class="secondary" data-action="edit-customer" data-phone="${escapeHtml(p)}" style="padding:5px 10px;font-size:0.78rem;">Bewerk</button></td>
+    </tr>`;
+  }).join('');
+}
+
+document.querySelector('#credit-table').addEventListener('click', (e)=>{
+  if(e.target.dataset.action === 'edit-customer'){
+    const phone = e.target.dataset.phone;
+    const entry = creditBalances[phone];
+    if(!entry) return;
+    document.getElementById('c-naam').value = entry.name || '';
+    document.getElementById('c-tel').value = phone;
+    document.getElementById('c-bedrag').value = '';
+    document.getElementById('edit-mode-note').style.display = 'block';
+    document.getElementById('c-naam').scrollIntoView({behavior:'smooth', block:'center'});
+  }
+});
+
+document.getElementById('btn-clear-credit-form').addEventListener('click', ()=>{
+  document.getElementById('c-naam').value='';
+  document.getElementById('c-tel').value='';
+  document.getElementById('c-bedrag').value='';
+  document.getElementById('edit-mode-note').style.display = 'none';
+});
+
+document.getElementById('btn-topup').addEventListener('click', async ()=>{
+  const naam = document.getElementById('c-naam').value.trim();
+  const tel = normPhone(document.getElementById('c-tel').value);
+  const bedragRaw = document.getElementById('c-bedrag').value;
+  const bedrag = bedragRaw === '' ? 0 : parseFloat(bedragRaw);
+  const isExisting = !!creditBalances[tel];
+  if(!tel || !naam){
+    showToast('Vul minstens een naam en telefoonnummer in');
+    return;
+  }
+  if(isNaN(bedrag) || bedrag < 0){
+    showToast('Vul een geldig bedrag in (of laat op 0 om alleen bij te werken)');
+    return;
+  }
+  const existing = creditBalances[tel] || { name: naam, balance: 0 };
+  existing.name = naam || existing.name;
+  existing.balance = existing.balance + bedrag;
+  creditBalances[tel] = existing;
+  await saveCredit();
+  document.getElementById('c-naam').value='';
+  document.getElementById('c-tel').value='';
+  document.getElementById('c-bedrag').value='';
+  document.getElementById('edit-mode-note').style.display = 'none';
+  renderCreditTable();
+  renderCart();
+  showToast(isExisting ? `Klantgegevens van ${existing.name} bijgewerkt` : `${existing.name} toegevoegd`);
+});
+
+// ---------- KLANT: items & cart ----------
+function renderKlantItems(){
+  const wrap = document.getElementById('klant-items');
+  const beschikbaar = menuItems.filter(i=>i.available);
+  if(beschikbaar.length === 0){
+    wrap.innerHTML = '<div class="empty">Deze week is er nog niets beschikbaar gezet door de winkel.</div>';
+    return;
+  }
+  wrap.innerHTML = '';
+  beschikbaar.forEach(item=>{
+    const qty = cart[item.id] || 0;
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.innerHTML = `
+      <div>
+        <div class="item-name">${escapeHtml(item.name)}</div>
+        <div class="item-cat">${escapeHtml(item.category||'')} · ${money(item.price)}</div>
+      </div>
+      <div class="qty-stepper">
+        <button data-id="${item.id}" data-delta="-1">−</button>
+        <span style="min-width:16px;text-align:center;">${qty}</span>
+        <button data-id="${item.id}" data-delta="1">+</button>
+      </div>
+    `;
+    wrap.appendChild(row);
+  });
+}
+
+document.getElementById('klant-items').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-id]');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const delta = parseInt(btn.dataset.delta);
+  const newQty = Math.max(0, (cart[id]||0) + delta);
+  if(newQty === 0) delete cart[id];
+  else cart[id] = newQty;
+  renderKlantItems();
+  renderCart();
+});
+
+function cartTotal(){
+  let total = 0;
+  Object.entries(cart).forEach(([id,qty])=>{
+    const item = menuItems.find(i=>i.id===id);
+    if(item) total += item.price * qty;
+  });
+  return total;
+}
+
+function renderCart(){
+  const summary = document.getElementById('cart-summary');
+  const total = cartTotal();
+  const hasItems = Object.keys(cart).length > 0;
+  summary.style.display = hasItems ? 'block' : 'none';
+  document.getElementById('cart-total').textContent = money(total);
+
+  const note = document.getElementById('credit-balance-note');
+  if(selectedPayment === 'Credit'){
+    const tel = normPhone(document.getElementById('k-tel').value);
+    const entry = tel ? creditBalances[tel] : null;
+    note.style.display = 'block';
+    note.textContent = tel
+      ? (entry ? `Beschikbaar tegoed: ${money(entry.balance)}` : 'Geen tegoed bekend voor dit telefoonnummer — vraag de winkel om op te waarderen.')
+      : 'Vul je telefoonnummer in om je tegoed te zien.';
+  } else {
+    note.style.display = 'none';
+  }
+}
+
+document.getElementById('payment-select').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-val]');
+  if(!btn) return;
+  selectedPayment = btn.dataset.val;
+  [...document.querySelectorAll('#payment-select button')].forEach(b=>b.classList.toggle('selected', b===btn));
+  renderCart();
+});
+
+document.getElementById('k-naam').addEventListener('input', renderCart);
+document.getElementById('k-tel').addEventListener('input', renderCart);
+
+document.getElementById('btn-order').addEventListener('click', async ()=>{
+  const naam = document.getElementById('k-naam').value.trim();
+  const tel = normPhone(document.getElementById('k-tel').value);
+  if(!naam || !tel){
+    showToast('Vul je naam en telefoonnummer in voordat je bestelt');
+    return;
+  }
+  if(Object.keys(cart).length === 0){
+    showToast('Je winkelmandje is leeg');
+    return;
+  }
+  const total = cartTotal();
+  if(selectedPayment === 'Credit'){
+    const entry = creditBalances[tel];
+    const balance = entry ? entry.balance : 0;
+    if(balance < total){
+      showToast(`Onvoldoende tegoed (${money(balance)} beschikbaar)`);
+      return;
+    }
+  }
+
+  const items = Object.entries(cart).map(([id,qty])=>{
+    const item = menuItems.find(i=>i.id===id);
+    return { itemId: id, name: item.name, price: item.price, qty };
+  });
+
+  const order = {
+    id: uid(),
+    customer: naam,
+    phone: tel,
+    items,
+    total,
+    payment: selectedPayment,
+    status: 'Nieuw',
+    timestamp: Date.now()
+  };
+
+  orders.push(order);
+  await saveOrders();
+
+  if(selectedPayment === 'Credit'){
+    const entry = creditBalances[tel] || { name: naam, balance: 0 };
+    entry.balance -= total;
+    entry.name = entry.name || naam;
+    creditBalances[tel] = entry;
+    await saveCredit();
+    renderCreditTable();
+  }
+
+  cart = {};
+  renderKlantItems();
+  renderCart();
+  renderMyOrders();
+  showToast('Bestelling geplaatst!');
+});
+
+// ---------- KLANT: mijn bestellingen ----------
+function renderMyOrders(){
+  const wrap = document.getElementById('my-orders');
+  const tel = normPhone(document.getElementById('k-tel').value);
+  if(!tel){
+    wrap.innerHTML = '<div class="empty">Vul je telefoonnummer in om je bestellingen te zien.</div>';
+    return;
+  }
+  const mine = orders.filter(o=>normPhone(o.phone) === tel);
+  if(mine.length === 0){
+    wrap.innerHTML = '<div class="empty">Je hebt nog geen bestellingen geplaatst.</div>';
+    return;
+  }
+  wrap.innerHTML = '';
+  [...mine].reverse().forEach(o=>{
+    const el = document.createElement('div');
+    el.className = 'card order-card status-' + o.status;
+    const itemsStr = o.items.map(it=>`${it.qty}× ${escapeHtml(it.name)}`).join(', ');
+    el.innerHTML = `
+      <div class="order-head">
+        <strong>${o.status}</strong>
+        <span class="muted">${new Date(o.timestamp).toLocaleString('nl-NL')}</span>
+      </div>
+      <div class="order-items">${itemsStr}</div>
+      <div class="row" style="justify-content:space-between;">
+        <span class="muted">Betaling: ${escapeHtml(o.payment)}</span>
+        <strong>${money(o.total)}</strong>
+      </div>
+    `;
+    wrap.appendChild(el);
+  });
+}
+document.getElementById('k-tel').addEventListener('change', renderMyOrders);
+
+// ---------- DASHBOARD ----------
+function renderDashboard(){
+  let omzet = 0;
+  const perKlant = {}; // phone -> { name, phone, count, spent }
+
+  orders.forEach(o=>{
+    omzet += o.total;
+    const phone = normPhone(o.phone) || '(onbekend)';
+    if(!perKlant[phone]) perKlant[phone] = { name: o.customer, phone, count: 0, spent: 0 };
+    perKlant[phone].count += 1;
+    perKlant[phone].spent += o.total;
+  });
+
+  const kosten = purchases.reduce((sum,p)=>sum + p.amount, 0);
+  const winst = omzet - kosten;
+  document.getElementById('dash-omzet').textContent = money(omzet);
+  document.getElementById('dash-kosten').textContent = money(kosten);
+  document.getElementById('dash-winst').textContent = money(winst);
+  document.getElementById('dash-note').textContent = purchases.length
+    ? `Inkoopkosten zijn het totaal van ${purchases.length} inko(o)p${purchases.length===1?'':'en'} ingevoerd bij "Inkopen" op de Winkel-tab.`
+    : 'Nog geen inkopen ingevoerd — voeg ze toe bij "Inkopen" op de Winkel-tab zodat de winst hier klopt.';
+
+  const tbody = document.querySelector('#dash-klant-table tbody');
+  const rows = Object.values(perKlant).sort((a,b)=>b.spent - a.spent);
+  document.getElementById('dash-klant-empty').style.display = rows.length ? 'none' : 'block';
+  tbody.innerHTML = rows.map(r=>{
+    const creditEntry = creditBalances[r.phone];
+    return `<tr>
+      <td>${escapeHtml(r.name||'')}</td>
+      <td>${escapeHtml(r.phone)}</td>
+      <td>${r.count}</td>
+      <td>${money(r.spent)}</td>
+      <td>${creditEntry ? money(creditEntry.balance) : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ---------- tabs ----------
+const isKlantOnly = new URLSearchParams(window.location.search).has('klant');
+
+function klantLinkUrl(){
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.searchParams.set('klant', '1');
+  return url.toString();
+}
+
+if(!isKlantOnly){
+  const linkInput = document.getElementById('klant-link');
+  if(linkInput){
+    linkInput.value = klantLinkUrl();
+    document.getElementById('btn-copy-klant-link').addEventListener('click', async ()=>{
+      try{
+        await navigator.clipboard.writeText(linkInput.value);
+        showToast('Link gekopieerd');
+      }catch(e){
+        linkInput.select();
+        showToast('Selecteer en kopieer de link handmatig');
+      }
+    });
+  }
+}
+
+document.getElementById('tab-winkel').addEventListener('click', ()=>requestWinkelAccess('winkel'));
+document.getElementById('tab-klant').addEventListener('click', ()=>switchTab('klant'));
+document.getElementById('tab-dashboard').addEventListener('click', ()=>requestWinkelAccess('dashboard'));
+
+let winkelPin = null;
+let winkelUnlocked = false;
+let pendingTab = null;
+
+async function requestWinkelAccess(targetTab){
+  if(isKlantOnly) return;
+  if(winkelUnlocked){
+    switchTab(targetTab);
+    if(targetTab==='dashboard') renderDashboard();
+    return;
+  }
+  if(winkelPin === null) winkelPin = await fetchWinkelPin();
+  if(!winkelPin){
+    winkelUnlocked = true;
+    document.getElementById('s-pin').value = '';
+    switchTab(targetTab);
+    if(targetTab==='dashboard') renderDashboard();
+    return;
+  }
+  pendingTab = targetTab;
+  document.getElementById('pin-error').style.display = 'none';
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-overlay').style.display = 'flex';
+  document.getElementById('pin-input').focus();
+}
+
+document.getElementById('pin-submit').addEventListener('click', ()=>{
+  const val = document.getElementById('pin-input').value;
+  if(val === winkelPin){
+    winkelUnlocked = true;
+    document.getElementById('pin-overlay').style.display = 'none';
+    document.getElementById('s-pin').value = winkelPin;
+    switchTab(pendingTab);
+    if(pendingTab==='dashboard') renderDashboard();
+  } else {
+    document.getElementById('pin-error').style.display = 'block';
+  }
+});
+document.getElementById('pin-cancel').addEventListener('click', ()=>{
+  document.getElementById('pin-overlay').style.display = 'none';
+});
+document.getElementById('pin-input').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') document.getElementById('pin-submit').click();
+});
+
+function switchTab(tab){
+  if(isKlantOnly) tab = 'klant';
+  document.getElementById('view-winkel').classList.toggle('active', tab==='winkel');
+  document.getElementById('view-klant').classList.toggle('active', tab==='klant');
+  document.getElementById('view-dashboard').classList.toggle('active', tab==='dashboard');
+  document.getElementById('tab-winkel').classList.toggle('active', tab==='winkel');
+  document.getElementById('tab-klant').classList.toggle('active', tab==='klant');
+  document.getElementById('tab-dashboard').classList.toggle('active', tab==='dashboard');
+}
+if(isKlantOnly){
+  document.getElementById('tab-winkel').style.display = 'none';
+  document.getElementById('tab-dashboard').style.display = 'none';
+  document.querySelector('nav.tabs').style.justifyContent = 'center';
+}
+switchTab('klant');
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : str;
+  return div.innerHTML;
+}
+
+loadAll();
+</script>
+</body>
+</html>
