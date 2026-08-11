@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Menu di Siman</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --kaya-blue:#1B4B6B;
@@ -224,6 +223,27 @@
     margin-bottom:6px;
   }
   .order-items{font-size:0.88rem;color:#4B463B;margin:4px 0;}
+  .deliver-time{
+    font-size:1.15rem;
+    font-weight:700;
+    color:var(--kaya-blue);
+  }
+  .deliver-btn{
+    width:100%;
+    padding:14px;
+    border-radius:10px;
+    border:2px solid var(--sea-green);
+    background:#fff;
+    color:var(--sea-green);
+    font-weight:700;
+    font-size:1rem;
+    cursor:pointer;
+    margin-top:10px;
+  }
+  .deliver-btn.done{
+    background:var(--sea-green);
+    color:#fff;
+  }
   .muted{color:var(--muted);font-size:0.85rem;}
   .empty{
     text-align:center;
@@ -282,6 +302,7 @@
   <nav class="tabs">
     <button id="tab-winkel" class="active">Winkel</button>
     <button id="tab-klant">Klant</button>
+    <button id="tab-leveren">Leveren</button>
     <button id="tab-dashboard">Dashboard</button>
   </nav>
 </header>
@@ -350,13 +371,7 @@
     </div>
 
     <h2>Beveiliging</h2>
-    <div class="card" id="security-auth-mode" style="display:none;">
-      <p class="muted" style="margin:0 0 6px;">Ingelogd als <strong id="security-auth-email"></strong>. Wachtwoord wijzigen kan via het Supabase-dashboard van dit project.</p>
-      <div class="row" style="margin-top:8px;">
-        <button class="secondary" id="btn-logout">Uitloggen</button>
-      </div>
-    </div>
-    <div class="card" id="security-pin-mode">
+    <div class="card">
       <p class="muted" style="margin:0 0 10px;">Zet een wachtwoord op de Winkel-tab en het Dashboard. Dit is een lichte drempel tegen per ongeluk klikken — geen volwaardige beveiliging tegen iemand die echt probeert in te breken.</p>
       <div class="row">
         <div class="field">
@@ -518,6 +533,20 @@
 
   </section>
 
+  <section id="view-leveren" class="view">
+
+    <h2>Nog te leveren</h2>
+    <p class="muted">Bestellingen op volgorde van tijd. Vink af zodra iets is afgeleverd of afgehaald — die verdwijnt dan uit deze lijst.</p>
+    <div class="row" style="margin:0 0 12px;">
+      <label class="toggle">
+        <input type="checkbox" id="leveren-show-all">
+        Ook al geleverde bestellingen tonen
+      </label>
+    </div>
+    <div id="leveren-list"></div>
+
+  </section>
+
   <section id="view-dashboard" class="view">
 
     <h2>Overzicht</h2>
@@ -562,49 +591,9 @@
   </div>
 </div>
 
-<div id="login-overlay" style="display:none;position:fixed;inset:0;background:rgba(36,33,29,0.55);z-index:60;align-items:center;justify-content:center;padding:20px;">
-  <div class="card" style="max-width:320px;width:100%;margin:0;">
-    <h2 style="margin-top:0;">Inloggen — Winkel</h2>
-    <p class="muted" style="margin:0 0 10px;">Log in om bij Winkel-beheer of Dashboard te komen.</p>
-    <label for="login-email">E-mail</label>
-    <input type="text" id="login-email" placeholder="jij@voorbeeld.com" style="margin-bottom:8px;">
-    <label for="login-password">Wachtwoord</label>
-    <input type="password" id="login-password">
-    <p class="muted" id="login-error" style="color:var(--otro-coral);display:none;margin:8px 0 0;">Inloggen mislukt — check e-mail en wachtwoord.</p>
-    <div class="row" style="margin-top:12px;">
-      <button class="primary" id="login-submit" style="flex:1;">Inloggen</button>
-      <button class="secondary" id="login-cancel">Annuleer</button>
-    </div>
-  </div>
-</div>
-
 <div class="toast" id="toast"></div>
 
 <script>
-// ---------- opslag: gebruikt Claude's ingebouwde opslag indien beschikbaar,
-// anders (bv. gehost op Cloudflare Pages) valt terug op Supabase ----------
-let sb = null;
-if(!window.storage){
-  const SUPABASE_URL = 'https://yyxbgpwdcmkfpzdzwxua.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_ebuXozx5GMOHkBgsK03ACQ_YTZYAsri';
-  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-  window.storage = {
-    async get(key){
-      const { data, error } = await sb.from('app_data').select('value').eq('key', key).maybeSingle();
-      if(error) throw error;
-      if(!data) return null;
-      return { key, value: JSON.stringify(data.value) };
-    },
-    async set(key, value){
-      const parsed = JSON.parse(value);
-      const { error } = await sb.from('app_data').upsert({ key, value: parsed, updated_at: new Date().toISOString() });
-      if(error) throw error;
-      return { key, value };
-    }
-  };
-}
-
 const skylineColors = ['#1B4B6B','#E0A72E','#E8637A','#2F7A6B','#C8874A','#3E6E8E','#D9527A'];
 const skylineHeights = [22,30,18,34,24,28,20,32,26];
 const sk = document.getElementById('skyline');
@@ -681,6 +670,7 @@ function renderAll(){
   renderStoreForm();
   renderStoreInfoCard();
   renderPurchasesTable();
+  renderLeverenList();
 }
 
 // ---------- WINKEL: inkopen ----------
@@ -1064,9 +1054,62 @@ document.getElementById('orders-list').addEventListener('change', async (e)=>{
       await saveOrders();
       renderOrdersList();
       renderMyOrders();
+      renderLeverenList();
     }
   }
 });
+
+// ---------- WINKEL: leveren (mobielvriendelijk) ----------
+function renderLeverenList(){
+  const wrap = document.getElementById('leveren-list');
+  if(!wrap) return;
+  const showAll = document.getElementById('leveren-show-all').checked;
+  let list = [...orders].sort((a,b)=> a.timestamp - b.timestamp);
+  if(!showAll) list = list.filter(o=>o.status !== 'Afgehaald');
+
+  if(list.length === 0){
+    wrap.innerHTML = `<div class="empty">${showAll ? 'Nog geen bestellingen.' : 'Alles is geleverd — niets openstaand.'}</div>`;
+    return;
+  }
+  wrap.innerHTML = '';
+  list.forEach(o=>{
+    const delivered = o.status === 'Afgehaald';
+    const itemsStr = o.items.map(it=>`${it.qty}× ${escapeHtml(it.name)}`).join(', ');
+    const el = document.createElement('div');
+    el.className = 'card order-card status-' + o.status;
+    el.innerHTML = `
+      <div class="order-head">
+        <span class="deliver-time">${new Date(o.timestamp).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</span>
+        <span class="muted">${new Date(o.timestamp).toLocaleDateString('nl-NL')}</span>
+      </div>
+      <div style="font-weight:600;margin-top:2px;">${escapeHtml(o.customer)} — ${escapeHtml(o.phone||'')}</div>
+      <div class="order-items">${itemsStr}</div>
+      <div class="row" style="justify-content:space-between;">
+        <span class="muted">Betaling: ${escapeHtml(o.payment)}</span>
+        <strong>${money(o.total)}</strong>
+      </div>
+      <button class="deliver-btn ${delivered?'done':''}" data-id="${o.id}">
+        ${delivered ? '✓ Geleverd' : 'Markeer als geleverd'}
+      </button>
+    `;
+    wrap.appendChild(el);
+  });
+}
+
+document.getElementById('leveren-list').addEventListener('click', async (e)=>{
+  const btn = e.target.closest('.deliver-btn');
+  if(!btn) return;
+  const id = btn.dataset.id;
+  const o = orders.find(x=>x.id===id);
+  if(!o) return;
+  o.status = (o.status === 'Afgehaald') ? 'Klaar' : 'Afgehaald';
+  await saveOrders();
+  renderLeverenList();
+  renderOrdersList();
+  renderMyOrders();
+});
+
+document.getElementById('leveren-show-all').addEventListener('change', renderLeverenList);
 
 // ---------- WINKEL: credit ----------
 function renderCreditTable(){
@@ -1367,6 +1410,7 @@ if(!isKlantOnly){
 
 document.getElementById('tab-winkel').addEventListener('click', ()=>requestWinkelAccess('winkel'));
 document.getElementById('tab-klant').addEventListener('click', ()=>switchTab('klant'));
+document.getElementById('tab-leveren').addEventListener('click', ()=>requestWinkelAccess('leveren'));
 document.getElementById('tab-dashboard').addEventListener('click', ()=>requestWinkelAccess('dashboard'));
 
 let winkelPin = null;
@@ -1378,36 +1422,19 @@ async function requestWinkelAccess(targetTab){
   if(winkelUnlocked){
     switchTab(targetTab);
     if(targetTab==='dashboard') renderDashboard();
+    if(targetTab==='leveren') renderLeverenList();
     return;
   }
-  pendingTab = targetTab;
-
-  if(sb){
-    // Live-versie (Supabase): echte account-login, gecontroleerd door de database zelf.
-    const { data: { session } } = await sb.auth.getSession();
-    if(session){
-      winkelUnlocked = true;
-      switchTab(targetTab);
-      if(targetTab==='dashboard') renderDashboard();
-      return;
-    }
-    document.getElementById('login-error').style.display = 'none';
-    document.getElementById('login-email').value = '';
-    document.getElementById('login-password').value = '';
-    document.getElementById('login-overlay').style.display = 'flex';
-    document.getElementById('login-email').focus();
-    return;
-  }
-
-  // Claude-preview zonder Supabase: simpel wachtwoordveld als terugval.
   if(winkelPin === null) winkelPin = await fetchWinkelPin();
   if(!winkelPin){
     winkelUnlocked = true;
     document.getElementById('s-pin').value = '';
     switchTab(targetTab);
     if(targetTab==='dashboard') renderDashboard();
+    if(targetTab==='leveren') renderLeverenList();
     return;
   }
+  pendingTab = targetTab;
   document.getElementById('pin-error').style.display = 'none';
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-overlay').style.display = 'flex';
@@ -1422,6 +1449,7 @@ document.getElementById('pin-submit').addEventListener('click', ()=>{
     document.getElementById('s-pin').value = winkelPin;
     switchTab(pendingTab);
     if(pendingTab==='dashboard') renderDashboard();
+    if(pendingTab==='leveren') renderLeverenList();
   } else {
     document.getElementById('pin-error').style.display = 'block';
   }
@@ -1433,71 +1461,24 @@ document.getElementById('pin-input').addEventListener('keydown', (e)=>{
   if(e.key === 'Enter') document.getElementById('pin-submit').click();
 });
 
-document.getElementById('login-submit').addEventListener('click', async ()=>{
-  const email = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-password').value;
-  const errEl = document.getElementById('login-error');
-  if(!email || !password){
-    errEl.textContent = 'Vul e-mail en wachtwoord in';
-    errEl.style.display = 'block';
-    return;
-  }
-  const { error } = await sb.auth.signInWithPassword({ email, password });
-  if(error){
-    errEl.textContent = 'Inloggen mislukt — check e-mail en wachtwoord.';
-    errEl.style.display = 'block';
-    return;
-  }
-  document.getElementById('login-overlay').style.display = 'none';
-  winkelUnlocked = true;
-  switchTab(pendingTab);
-  if(pendingTab==='dashboard') renderDashboard();
-  document.getElementById('security-auth-email').textContent = email;
-  showToast('Ingelogd');
-});
-document.getElementById('login-cancel').addEventListener('click', ()=>{
-  document.getElementById('login-overlay').style.display = 'none';
-});
-document.getElementById('login-password').addEventListener('keydown', (e)=>{
-  if(e.key === 'Enter') document.getElementById('login-submit').click();
-});
-
-async function doLogout(){
-  if(sb) await sb.auth.signOut();
-  winkelUnlocked = false;
-  switchTab('klant');
-  showToast('Uitgelogd');
-}
-
 function switchTab(tab){
   if(isKlantOnly) tab = 'klant';
   document.getElementById('view-winkel').classList.toggle('active', tab==='winkel');
   document.getElementById('view-klant').classList.toggle('active', tab==='klant');
+  document.getElementById('view-leveren').classList.toggle('active', tab==='leveren');
   document.getElementById('view-dashboard').classList.toggle('active', tab==='dashboard');
   document.getElementById('tab-winkel').classList.toggle('active', tab==='winkel');
   document.getElementById('tab-klant').classList.toggle('active', tab==='klant');
+  document.getElementById('tab-leveren').classList.toggle('active', tab==='leveren');
   document.getElementById('tab-dashboard').classList.toggle('active', tab==='dashboard');
 }
 if(isKlantOnly){
   document.getElementById('tab-winkel').style.display = 'none';
+  document.getElementById('tab-leveren').style.display = 'none';
   document.getElementById('tab-dashboard').style.display = 'none';
   document.querySelector('nav.tabs').style.justifyContent = 'center';
 }
 switchTab('klant');
-
-if(!isKlantOnly){
-  if(sb){
-    document.getElementById('security-auth-mode').style.display = 'block';
-    document.getElementById('security-pin-mode').style.display = 'none';
-    sb.auth.getSession().then(({data:{session}})=>{
-      document.getElementById('security-auth-email').textContent = session ? session.user.email : '(nog niet ingelogd)';
-    });
-    document.getElementById('btn-logout').addEventListener('click', doLogout);
-  } else {
-    document.getElementById('security-auth-mode').style.display = 'none';
-    document.getElementById('security-pin-mode').style.display = 'block';
-  }
-}
 
 function escapeHtml(str){
   const div = document.createElement('div');
