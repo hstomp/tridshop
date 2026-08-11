@@ -350,7 +350,13 @@
     </div>
 
     <h2>Beveiliging</h2>
-    <div class="card">
+    <div class="card" id="security-auth-mode" style="display:none;">
+      <p class="muted" style="margin:0 0 6px;">Ingelogd als <strong id="security-auth-email"></strong>. Wachtwoord wijzigen kan via het Supabase-dashboard van dit project.</p>
+      <div class="row" style="margin-top:8px;">
+        <button class="secondary" id="btn-logout">Uitloggen</button>
+      </div>
+    </div>
+    <div class="card" id="security-pin-mode">
       <p class="muted" style="margin:0 0 10px;">Zet een wachtwoord op de Winkel-tab en het Dashboard. Dit is een lichte drempel tegen per ongeluk klikken — geen volwaardige beveiliging tegen iemand die echt probeert in te breken.</p>
       <div class="row">
         <div class="field">
@@ -556,15 +562,32 @@
   </div>
 </div>
 
+<div id="login-overlay" style="display:none;position:fixed;inset:0;background:rgba(36,33,29,0.55);z-index:60;align-items:center;justify-content:center;padding:20px;">
+  <div class="card" style="max-width:320px;width:100%;margin:0;">
+    <h2 style="margin-top:0;">Inloggen — Winkel</h2>
+    <p class="muted" style="margin:0 0 10px;">Log in om bij Winkel-beheer of Dashboard te komen.</p>
+    <label for="login-email">E-mail</label>
+    <input type="text" id="login-email" placeholder="jij@voorbeeld.com" style="margin-bottom:8px;">
+    <label for="login-password">Wachtwoord</label>
+    <input type="password" id="login-password">
+    <p class="muted" id="login-error" style="color:var(--otro-coral);display:none;margin:8px 0 0;">Inloggen mislukt — check e-mail en wachtwoord.</p>
+    <div class="row" style="margin-top:12px;">
+      <button class="primary" id="login-submit" style="flex:1;">Inloggen</button>
+      <button class="secondary" id="login-cancel">Annuleer</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 // ---------- opslag: gebruikt Claude's ingebouwde opslag indien beschikbaar,
 // anders (bv. gehost op Cloudflare Pages) valt terug op Supabase ----------
+let sb = null;
 if(!window.storage){
   const SUPABASE_URL = 'https://yyxbgpwdcmkfpzdzwxua.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_ebuXozx5GMOHkBgsK03ACQ_YTZYAsri';
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   window.storage = {
     async get(key){
@@ -1357,6 +1380,26 @@ async function requestWinkelAccess(targetTab){
     if(targetTab==='dashboard') renderDashboard();
     return;
   }
+  pendingTab = targetTab;
+
+  if(sb){
+    // Live-versie (Supabase): echte account-login, gecontroleerd door de database zelf.
+    const { data: { session } } = await sb.auth.getSession();
+    if(session){
+      winkelUnlocked = true;
+      switchTab(targetTab);
+      if(targetTab==='dashboard') renderDashboard();
+      return;
+    }
+    document.getElementById('login-error').style.display = 'none';
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-overlay').style.display = 'flex';
+    document.getElementById('login-email').focus();
+    return;
+  }
+
+  // Claude-preview zonder Supabase: simpel wachtwoordveld als terugval.
   if(winkelPin === null) winkelPin = await fetchWinkelPin();
   if(!winkelPin){
     winkelUnlocked = true;
@@ -1365,7 +1408,6 @@ async function requestWinkelAccess(targetTab){
     if(targetTab==='dashboard') renderDashboard();
     return;
   }
-  pendingTab = targetTab;
   document.getElementById('pin-error').style.display = 'none';
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-overlay').style.display = 'flex';
@@ -1391,6 +1433,42 @@ document.getElementById('pin-input').addEventListener('keydown', (e)=>{
   if(e.key === 'Enter') document.getElementById('pin-submit').click();
 });
 
+document.getElementById('login-submit').addEventListener('click', async ()=>{
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  if(!email || !password){
+    errEl.textContent = 'Vul e-mail en wachtwoord in';
+    errEl.style.display = 'block';
+    return;
+  }
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){
+    errEl.textContent = 'Inloggen mislukt — check e-mail en wachtwoord.';
+    errEl.style.display = 'block';
+    return;
+  }
+  document.getElementById('login-overlay').style.display = 'none';
+  winkelUnlocked = true;
+  switchTab(pendingTab);
+  if(pendingTab==='dashboard') renderDashboard();
+  document.getElementById('security-auth-email').textContent = email;
+  showToast('Ingelogd');
+});
+document.getElementById('login-cancel').addEventListener('click', ()=>{
+  document.getElementById('login-overlay').style.display = 'none';
+});
+document.getElementById('login-password').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') document.getElementById('login-submit').click();
+});
+
+async function doLogout(){
+  if(sb) await sb.auth.signOut();
+  winkelUnlocked = false;
+  switchTab('klant');
+  showToast('Uitgelogd');
+}
+
 function switchTab(tab){
   if(isKlantOnly) tab = 'klant';
   document.getElementById('view-winkel').classList.toggle('active', tab==='winkel');
@@ -1406,6 +1484,20 @@ if(isKlantOnly){
   document.querySelector('nav.tabs').style.justifyContent = 'center';
 }
 switchTab('klant');
+
+if(!isKlantOnly){
+  if(sb){
+    document.getElementById('security-auth-mode').style.display = 'block';
+    document.getElementById('security-pin-mode').style.display = 'none';
+    sb.auth.getSession().then(({data:{session}})=>{
+      document.getElementById('security-auth-email').textContent = session ? session.user.email : '(nog niet ingelogd)';
+    });
+    document.getElementById('btn-logout').addEventListener('click', doLogout);
+  } else {
+    document.getElementById('security-auth-mode').style.display = 'none';
+    document.getElementById('security-pin-mode').style.display = 'block';
+  }
+}
 
 function escapeHtml(str){
   const div = document.createElement('div');
