@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Menu di Siman</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --kaya-blue:#1B4B6B;
@@ -371,7 +372,13 @@
     </div>
 
     <h2>Beveiliging</h2>
-    <div class="card">
+    <div class="card" id="security-auth-mode" style="display:none;">
+      <p class="muted" style="margin:0 0 6px;">Ingelogd als <strong id="security-auth-email"></strong>. Wachtwoord wijzigen kan via het Supabase-dashboard van dit project.</p>
+      <div class="row" style="margin-top:8px;">
+        <button class="secondary" id="btn-logout">Uitloggen</button>
+      </div>
+    </div>
+    <div class="card" id="security-pin-mode">
       <p class="muted" style="margin:0 0 10px;">Zet een wachtwoord op de Winkel-tab en het Dashboard. Dit is een lichte drempel tegen per ongeluk klikken — geen volwaardige beveiliging tegen iemand die echt probeert in te breken.</p>
       <div class="row">
         <div class="field">
@@ -494,6 +501,11 @@
 
   <section id="view-klant" class="view">
 
+    <div class="card" id="store-not-found" style="display:none;background:#FBEAEA;border-color:var(--otro-coral);">
+      <strong style="color:var(--otro-coral);">Winkel niet gevonden</strong>
+      <p class="muted" style="margin:6px 0 0;">Deze link klopt niet (meer). Vraag de winkel om de juiste klantlink.</p>
+    </div>
+
     <h2>Over de winkel</h2>
     <div class="card" id="store-info-card"></div>
 
@@ -591,9 +603,58 @@
   </div>
 </div>
 
+<div id="login-overlay" style="display:none;position:fixed;inset:0;background:rgba(36,33,29,0.55);z-index:60;align-items:center;justify-content:center;padding:20px;">
+  <div class="card" style="max-width:320px;width:100%;margin:0;">
+    <h2 style="margin-top:0;" id="auth-title">Inloggen — Winkel</h2>
+    <p class="muted" style="margin:0 0 10px;" id="auth-subtitle">Log in om bij Winkel-beheer of Dashboard te komen.</p>
+    <div id="signup-extra-fields" style="display:none;">
+      <label for="signup-storename">Winkelnaam</label>
+      <input type="text" id="signup-storename" placeholder="bv. Floor's Cuisine" style="margin-bottom:8px;">
+      <label for="signup-slug">Linknaam (voor klantlink, alleen a-z 0-9 en -)</label>
+      <input type="text" id="signup-slug" placeholder="bv. floors-cuisine" style="margin-bottom:8px;">
+    </div>
+    <label for="login-email">E-mail</label>
+    <input type="text" id="login-email" placeholder="jij@voorbeeld.com" style="margin-bottom:8px;">
+    <label for="login-password">Wachtwoord</label>
+    <input type="password" id="login-password">
+    <p class="muted" id="login-error" style="color:var(--otro-coral);display:none;margin:8px 0 0;">Inloggen mislukt — check e-mail en wachtwoord.</p>
+    <div class="row" style="margin-top:12px;">
+      <button class="primary" id="login-submit" style="flex:1;">Inloggen</button>
+      <button class="secondary" id="login-cancel">Annuleer</button>
+    </div>
+    <p class="muted" style="margin-top:10px;text-align:center;">
+      <a href="#" id="toggle-auth-mode">Nog geen winkel? Registreer hier</a>
+    </p>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
+// ---------- opslag: gebruikt Claude's ingebouwde opslag indien beschikbaar,
+// anders (bv. gehost op Cloudflare Pages) valt terug op Supabase ----------
+let sb = null;
+if(!window.storage){
+  const SUPABASE_URL = 'https://yyxbgpwdcmkfpzdzwxua.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_ebuXozx5GMOHkBgsK03ACQ_YTZYAsri';
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  window.storage = {
+    async get(key){
+      const { data, error } = await sb.from('app_data').select('value').eq('key', key).maybeSingle();
+      if(error) throw error;
+      if(!data) return null;
+      return { key, value: JSON.stringify(data.value) };
+    },
+    async set(key, value){
+      const parsed = JSON.parse(value);
+      const { error } = await sb.from('app_data').upsert({ key, value: parsed, updated_at: new Date().toISOString() });
+      if(error) throw error;
+      return { key, value };
+    }
+  };
+}
+
 const skylineColors = ['#1B4B6B','#E0A72E','#E8637A','#2F7A6B','#C8874A','#3E6E8E','#D9527A'];
 const skylineHeights = [22,30,18,34,24,28,20,32,26];
 const sk = document.getElementById('skyline');
@@ -603,6 +664,22 @@ skylineHeights.forEach((h,i)=>{
   b.style.background = skylineColors[i % skylineColors.length];
   sk.appendChild(b);
 });
+
+// ---------- multi-tenant: welke winkel is er nu actief? ----------
+const urlParams = new URLSearchParams(window.location.search);
+const isKlantOnly = urlParams.has('klant');
+const urlStoreSlug = (urlParams.get('winkel') || '').trim();
+
+let activeStoreId = null;   // de winkel waarvan we nu menu/bestellingen/tegoed tonen
+let activeStoreSlug = '';
+let myStoreId = null;       // gezet na inloggen: jouw eigen winkel
+let myStoreSlug = '';
+
+async function resolveStoreBySlug(slug){
+  if(!sb || !slug) return null;
+  const { data } = await sb.from('stores').select('id,slug,name').eq('slug', slug).maybeSingle();
+  return data || null;
+}
 
 let menuItems = [];
 let orders = [];
@@ -624,36 +701,67 @@ function showToast(msg){
   setTimeout(()=>t.classList.remove('show'), 2200);
 }
 
-async function loadAll(){
+async function loadStoreData(storeId){
   try{
     const [m, o, c, s, p] = await Promise.all([
-      window.storage.get('menu-items', true).catch(()=>null),
-      window.storage.get('orders', true).catch(()=>null),
-      window.storage.get('credit-balances', true).catch(()=>null),
-      window.storage.get('store-info', true).catch(()=>null),
-      window.storage.get('purchases', true).catch(()=>null),
+      window.storage.get(storeId+':menu-items', true).catch(()=>null),
+      window.storage.get(storeId+':orders', true).catch(()=>null),
+      window.storage.get(storeId+':credit-balances', true).catch(()=>null),
+      window.storage.get(storeId+':store-info', true).catch(()=>null),
+      window.storage.get(storeId+':purchases', true).catch(()=>null),
     ]);
     menuItems = m ? JSON.parse(m.value) : [];
     orders = o ? JSON.parse(o.value) : [];
     creditBalances = c ? JSON.parse(c.value) : {};
-    if(s) storeInfo = JSON.parse(s.value);
+    storeInfo = s ? JSON.parse(s.value) : { name:'', phone:'', address:'', hours:'', description:'', logo:'' };
     purchases = p ? JSON.parse(p.value) : [];
   }catch(e){
     console.error('Laden mislukt', e);
     showToast('Laden mislukt — probeer de pagina te vernieuwen');
   }
-  document.getElementById('loading').style.display = 'none';
-  renderAll();
 }
 
-async function saveMenu(){ await window.storage.set('menu-items', JSON.stringify(menuItems), true); }
-async function saveOrders(){ await window.storage.set('orders', JSON.stringify(orders), true); }
-async function saveCredit(){ await window.storage.set('credit-balances', JSON.stringify(creditBalances), true); }
-async function saveStoreInfo(){ await window.storage.set('store-info', JSON.stringify(storeInfo), true); }
-async function savePurchases(){ await window.storage.set('purchases', JSON.stringify(purchases), true); }
+async function loadAll(){
+  if(urlStoreSlug){
+    const store = await resolveStoreBySlug(urlStoreSlug);
+    if(store){ activeStoreId = store.id; activeStoreSlug = store.slug; }
+  }
+  if(sb){
+    const { data: { session } } = await sb.auth.getSession();
+    if(session) await afterLogin(session, false);
+  }
+  if(activeStoreId){
+    await loadStoreData(activeStoreId);
+  }
+  document.getElementById('loading').style.display = 'none';
+  renderAll();
+  const notFound = document.getElementById('store-not-found');
+  if(notFound) notFound.style.display = (isKlantOnly && !activeStoreId) ? 'block' : 'none';
+}
+
+async function afterLogin(session, doLoad){
+  myStoreId = session.user.id;
+  winkelUnlocked = true;
+  const { data: storeRow } = await sb.from('stores').select('slug,name').eq('id', myStoreId).maybeSingle();
+  myStoreSlug = storeRow ? storeRow.slug : '';
+  if(!activeStoreId){
+    activeStoreId = myStoreId;
+    activeStoreSlug = myStoreSlug;
+  }
+  if(doLoad !== false){
+    await loadStoreData(activeStoreId);
+  }
+  refreshKlantLink();
+}
+
+async function saveMenu(){ await window.storage.set(activeStoreId+':menu-items', JSON.stringify(menuItems), true); }
+async function saveOrders(){ await window.storage.set(activeStoreId+':orders', JSON.stringify(orders), true); }
+async function saveCredit(){ await window.storage.set(activeStoreId+':credit-balances', JSON.stringify(creditBalances), true); }
+async function saveStoreInfo(){ await window.storage.set(activeStoreId+':store-info', JSON.stringify(storeInfo), true); }
+async function savePurchases(){ await window.storage.set(activeStoreId+':purchases', JSON.stringify(purchases), true); }
 async function fetchWinkelPin(){
   try{
-    const p = await window.storage.get('store-pin', true).catch(()=>null);
+    const p = await window.storage.get((activeStoreId||'')+':store-pin', true).catch(()=>null);
     return p ? (JSON.parse(p.value).pin || '') : '';
   }catch(e){
     return '';
@@ -1102,12 +1210,32 @@ document.getElementById('leveren-list').addEventListener('click', async (e)=>{
   const id = btn.dataset.id;
   const o = orders.find(x=>x.id===id);
   if(!o) return;
-  o.status = (o.status === 'Afgehaald') ? 'Klaar' : 'Afgehaald';
+  const wasDelivered = o.status === 'Afgehaald';
+  o.status = wasDelivered ? 'Klaar' : 'Afgehaald';
   await saveOrders();
   renderLeverenList();
   renderOrdersList();
   renderMyOrders();
+  if(!wasDelivered) sendWhatsappReady(o);
 });
+
+async function sendWhatsappReady(order){
+  if(!sb || !order.phone) return;
+  try{
+    const { data, error } = await sb.functions.invoke('notify-whatsapp', {
+      body: { phone: order.phone, customerName: order.customer, storeName: storeInfo.name }
+    });
+    if(error || (data && data.error)){
+      console.error('WhatsApp-notificatie mislukt', error || data.error);
+      showToast('Bestelling afgevinkt — WhatsApp-bericht kon niet verstuurd worden (check Twilio-instellingen)');
+    } else {
+      showToast('Bestelling afgevinkt — WhatsApp-bericht verstuurd');
+    }
+  }catch(e){
+    console.error('WhatsApp-notificatie mislukt', e);
+    showToast('Bestelling afgevinkt — WhatsApp-bericht kon niet verstuurd worden');
+  }
+}
 
 document.getElementById('leveren-show-all').addEventListener('change', renderLeverenList);
 
@@ -1383,20 +1511,26 @@ function renderDashboard(){
 }
 
 // ---------- tabs ----------
-const isKlantOnly = new URLSearchParams(window.location.search).has('klant');
 
 function klantLinkUrl(){
   const url = new URL(window.location.href);
   url.search = '';
   url.searchParams.set('klant', '1');
+  url.searchParams.set('winkel', myStoreSlug || '');
   return url.toString();
+}
+
+function refreshKlantLink(){
+  const linkInput = document.getElementById('klant-link');
+  if(linkInput && myStoreSlug) linkInput.value = klantLinkUrl();
 }
 
 if(!isKlantOnly){
   const linkInput = document.getElementById('klant-link');
   if(linkInput){
-    linkInput.value = klantLinkUrl();
+    linkInput.value = myStoreSlug ? klantLinkUrl() : 'Log eerst in om je klantlink te zien';
     document.getElementById('btn-copy-klant-link').addEventListener('click', async ()=>{
+      if(!myStoreSlug){ showToast('Log eerst in bij Winkel om je klantlink te zien'); return; }
       try{
         await navigator.clipboard.writeText(linkInput.value);
         showToast('Link gekopieerd');
@@ -1425,6 +1559,28 @@ async function requestWinkelAccess(targetTab){
     if(targetTab==='leveren') renderLeverenList();
     return;
   }
+  pendingTab = targetTab;
+
+  if(sb){
+    // Live-versie (Supabase): echte account-login, gecontroleerd door de database zelf.
+    const { data: { session } } = await sb.auth.getSession();
+    if(session){
+      if(!myStoreId) await afterLogin(session, true);
+      winkelUnlocked = true;
+      switchTab(targetTab);
+      if(targetTab==='dashboard') renderDashboard();
+    if(targetTab==='leveren') renderLeverenList();
+      return;
+    }
+    document.getElementById('login-error').style.display = 'none';
+    document.getElementById('login-email').value = '';
+    document.getElementById('login-password').value = '';
+    document.getElementById('login-overlay').style.display = 'flex';
+    document.getElementById('login-email').focus();
+    return;
+  }
+
+  // Claude-preview zonder Supabase: simpel wachtwoordveld als terugval.
   if(winkelPin === null) winkelPin = await fetchWinkelPin();
   if(!winkelPin){
     winkelUnlocked = true;
@@ -1434,7 +1590,6 @@ async function requestWinkelAccess(targetTab){
     if(targetTab==='leveren') renderLeverenList();
     return;
   }
-  pendingTab = targetTab;
   document.getElementById('pin-error').style.display = 'none';
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-overlay').style.display = 'flex';
@@ -1449,7 +1604,6 @@ document.getElementById('pin-submit').addEventListener('click', ()=>{
     document.getElementById('s-pin').value = winkelPin;
     switchTab(pendingTab);
     if(pendingTab==='dashboard') renderDashboard();
-    if(pendingTab==='leveren') renderLeverenList();
   } else {
     document.getElementById('pin-error').style.display = 'block';
   }
@@ -1460,6 +1614,106 @@ document.getElementById('pin-cancel').addEventListener('click', ()=>{
 document.getElementById('pin-input').addEventListener('keydown', (e)=>{
   if(e.key === 'Enter') document.getElementById('pin-submit').click();
 });
+
+let authMode = 'login';
+
+document.getElementById('toggle-auth-mode').addEventListener('click', (e)=>{
+  e.preventDefault();
+  authMode = (authMode === 'login') ? 'signup' : 'login';
+  document.getElementById('signup-extra-fields').style.display = authMode === 'signup' ? 'block' : 'none';
+  document.getElementById('auth-title').textContent = authMode === 'signup' ? 'Nieuwe winkel registreren' : 'Inloggen — Winkel';
+  document.getElementById('auth-subtitle').textContent = authMode === 'signup'
+    ? 'Maak een account voor je eigen winkel aan.'
+    : 'Log in om bij Winkel-beheer of Dashboard te komen.';
+  document.getElementById('login-submit').textContent = authMode === 'signup' ? 'Registreren' : 'Inloggen';
+  document.getElementById('toggle-auth-mode').textContent = authMode === 'signup' ? 'Heb je al een winkel? Log hier in' : 'Nog geen winkel? Registreer hier';
+  document.getElementById('login-error').style.display = 'none';
+});
+
+document.getElementById('login-submit').addEventListener('click', async ()=>{
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  if(!email || !password){
+    errEl.textContent = 'Vul e-mail en wachtwoord in';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if(authMode === 'signup'){
+    const storeName = document.getElementById('signup-storename').value.trim();
+    const slug = document.getElementById('signup-slug').value.trim().toLowerCase()
+      .replace(/[^a-z0-9-]+/g,'-').replace(/^-+|-+$/g,'');
+    if(!storeName || !slug){
+      errEl.textContent = 'Vul winkelnaam en linknaam in';
+      errEl.style.display = 'block';
+      return;
+    }
+    const { data: signUpData, error: signUpErr } = await sb.auth.signUp({ email, password });
+    if(signUpErr){
+      errEl.textContent = 'Registreren mislukt: ' + signUpErr.message;
+      errEl.style.display = 'block';
+      return;
+    }
+    if(!signUpData.session){
+      document.getElementById('login-overlay').style.display = 'none';
+      showToast('Check je e-mail om je account te bevestigen, log daarna in.');
+      return;
+    }
+    const { error: storeErr } = await sb.from('stores').insert({ id: signUpData.user.id, slug, name: storeName });
+    if(storeErr){
+      errEl.textContent = storeErr.message.includes('duplicate')
+        ? 'Deze linknaam is al bezet, kies een andere.'
+        : 'Kon winkel niet aanmaken: ' + storeErr.message;
+      errEl.style.display = 'block';
+      return;
+    }
+    activeStoreId = signUpData.user.id;
+    activeStoreSlug = slug;
+    storeInfo = { name: storeName, phone:'', address:'', hours:'', description:'', logo:'' };
+    await saveStoreInfo();
+    await afterLogin(signUpData.session, false);
+    renderAll();
+    document.getElementById('login-overlay').style.display = 'none';
+    switchTab(pendingTab || 'winkel');
+    if(pendingTab==='dashboard') renderDashboard();
+    document.getElementById('security-auth-email').textContent = email;
+    showToast('Winkel aangemaakt! Welkom, ' + storeName);
+    return;
+  }
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){
+    errEl.textContent = 'Inloggen mislukt — check e-mail en wachtwoord.';
+    errEl.style.display = 'block';
+    return;
+  }
+  await afterLogin(data.session, true);
+  renderAll();
+  document.getElementById('login-overlay').style.display = 'none';
+  switchTab(pendingTab);
+  if(pendingTab==='dashboard') renderDashboard();
+  document.getElementById('security-auth-email').textContent = email;
+  showToast('Ingelogd');
+});
+document.getElementById('login-cancel').addEventListener('click', ()=>{
+  document.getElementById('login-overlay').style.display = 'none';
+});
+document.getElementById('login-password').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') document.getElementById('login-submit').click();
+});
+
+async function doLogout(){
+  if(sb) await sb.auth.signOut();
+  winkelUnlocked = false;
+  myStoreId = null;
+  myStoreSlug = '';
+  if(!urlStoreSlug) activeStoreId = null;
+  switchTab('klant');
+  showToast('Uitgelogd');
+}
 
 function switchTab(tab){
   if(isKlantOnly) tab = 'klant';
@@ -1479,6 +1733,20 @@ if(isKlantOnly){
   document.querySelector('nav.tabs').style.justifyContent = 'center';
 }
 switchTab('klant');
+
+if(!isKlantOnly){
+  if(sb){
+    document.getElementById('security-auth-mode').style.display = 'block';
+    document.getElementById('security-pin-mode').style.display = 'none';
+    sb.auth.getSession().then(({data:{session}})=>{
+      document.getElementById('security-auth-email').textContent = session ? session.user.email : '(nog niet ingelogd)';
+    });
+    document.getElementById('btn-logout').addEventListener('click', doLogout);
+  } else {
+    document.getElementById('security-auth-mode').style.display = 'none';
+    document.getElementById('security-pin-mode').style.display = 'block';
+  }
+}
 
 function escapeHtml(str){
   const div = document.createElement('div');
