@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Menu di Siman</title>
+<title>Digital Menu Maker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -25,6 +25,7 @@
     color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     -webkit-font-smoothing:antialiased;
+    transition:background .2s;
   }
   .skyline{
     display:flex;
@@ -113,7 +114,7 @@
     display:block;
     margin-bottom:4px;
   }
-  input[type=text], input[type=number], input[type=tel], select{
+  input[type=text], input[type=number], input[type=tel], input[type=email], input[type=password], select{
     width:100%;
     padding:9px 10px;
     border:1px solid var(--line);
@@ -121,6 +122,15 @@
     font-size:0.95rem;
     background:#fff;
     color:var(--ink);
+  }
+  input[type=color]{
+    width:100%;
+    padding:2px;
+    height:40px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:#fff;
+    cursor:pointer;
   }
   .field{flex:1;min-width:120px;}
   button.primary{
@@ -224,27 +234,6 @@
     margin-bottom:6px;
   }
   .order-items{font-size:0.88rem;color:#4B463B;margin:4px 0;}
-  .deliver-time{
-    font-size:1.15rem;
-    font-weight:700;
-    color:var(--kaya-blue);
-  }
-  .deliver-btn{
-    width:100%;
-    padding:14px;
-    border-radius:10px;
-    border:2px solid var(--sea-green);
-    background:#fff;
-    color:var(--sea-green);
-    font-weight:700;
-    font-size:1rem;
-    cursor:pointer;
-    margin-top:10px;
-  }
-  .deliver-btn.done{
-    background:var(--sea-green);
-    color:#fff;
-  }
   .muted{color:var(--muted);font-size:0.85rem;}
   .empty{
     text-align:center;
@@ -293,23 +282,79 @@
 
 <header>
   <div class="skyline" id="skyline"></div>
-  <div class="inner" style="display:flex;align-items:center;gap:14px;">
-    <img id="header-logo" style="display:none;width:52px;height:52px;border-radius:10px;object-fit:cover;flex:0 0 auto;">
-    <div>
-      <h1 style="margin:6px 0 2px;">Menu di Siman</h1>
-      <p>Digitale menukaart &amp; bestellen — winkel en klant in één app</p>
+  <div class="inner" style="display:flex;align-items:center;justify-content:space-between;gap:14px;">
+    <div style="display:flex;align-items:center;gap:14px;min-width:0;">
+      <img id="header-logo" style="display:none;width:52px;height:52px;border-radius:10px;object-fit:cover;flex:0 0 auto;">
+      <div style="min-width:0;">
+        <h1 style="margin:6px 0 2px;">Digital Menu Maker</h1>
+        <p id="header-sub">Digitale menukaart &amp; bestellen — winkel en klant in één app</p>
+      </div>
     </div>
+    <button class="secondary" id="btn-logout" style="display:none;background:rgba(255,255,255,0.14);color:#fff;border-color:rgba(255,255,255,0.32);flex:0 0 auto;">Uitloggen</button>
   </div>
-  <nav class="tabs">
+  <nav class="tabs" id="main-tabs" style="display:none;">
     <button id="tab-winkel" class="active">Winkel</button>
     <button id="tab-klant">Klant</button>
-    <button id="tab-leveren">Leveren</button>
     <button id="tab-dashboard">Dashboard</button>
   </nav>
 </header>
 
 <main>
   <div id="loading" class="loading">Bezig met laden…</div>
+
+  <section id="view-auth" class="view">
+    <h2>Inloggen op je winkel</h2>
+    <div class="card">
+      <div class="pill-select" id="auth-mode-select" style="margin-bottom:14px;">
+        <button data-val="login" class="selected" type="button">Inloggen</button>
+        <button data-val="signup" type="button">Nieuwe winkel registreren</button>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="auth-email">E-mail</label>
+          <input type="email" id="auth-email" placeholder="jij@voorbeeld.com" autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="auth-password">Wachtwoord</label>
+          <input type="password" id="auth-password" placeholder="Wachtwoord" autocomplete="current-password">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <button class="primary" id="btn-auth-submit">Inloggen</button>
+      </div>
+      <p class="muted" id="auth-message" style="margin-top:10px;"></p>
+    </div>
+    <p class="muted">Ben je klant van een winkel? Vraag de winkel om jouw persoonlijke bestellink — je hoeft dan niet in te loggen.</p>
+  </section>
+
+  <section id="view-onboarding" class="view">
+    <h2>Welkom! Zet je winkel op</h2>
+    <div class="card">
+      <div class="row">
+        <div class="field">
+          <label for="ob-naam">Winkelnaam</label>
+          <input type="text" id="ob-naam" placeholder="bv. Tienda Kaya Blou">
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div class="field">
+          <label for="ob-slug">Link voor klanten</label>
+          <input type="text" id="ob-slug" placeholder="bv. tienda-kaya-blou">
+        </div>
+      </div>
+      <p class="muted" style="margin:8px 0 0;">Klanten bereiken je winkel via: <span id="ob-slug-preview">…</span></p>
+      <div class="row" style="margin-top:12px;">
+        <button class="primary" id="btn-onboard-submit">Winkel aanmaken</button>
+      </div>
+      <p class="muted" id="onboard-message" style="margin-top:10px;"></p>
+    </div>
+  </section>
+
+  <section id="view-store-not-found" class="view">
+    <div class="card empty">Deze winkel bestaat niet (meer). Controleer de link die je hebt gekregen.</div>
+  </section>
+
+  <div id="app-shell" style="display:none;">
 
   <section id="view-winkel" class="view">
 
@@ -366,28 +411,18 @@
           <input type="text" id="s-beschrijving" placeholder="Korte omschrijving voor klanten">
         </div>
       </div>
-      <div class="row" style="margin-top:12px;">
-        <button class="primary" id="btn-save-store">Profiel opslaan</button>
-      </div>
-    </div>
-
-    <h2>Beveiliging</h2>
-    <div class="card" id="security-auth-mode" style="display:none;">
-      <p class="muted" style="margin:0 0 6px;">Ingelogd als <strong id="security-auth-email"></strong>. Wachtwoord wijzigen kan via het Supabase-dashboard van dit project.</p>
-      <div class="row" style="margin-top:8px;">
-        <button class="secondary" id="btn-logout">Uitloggen</button>
-      </div>
-    </div>
-    <div class="card" id="security-pin-mode">
-      <p class="muted" style="margin:0 0 10px;">Zet een wachtwoord op de Winkel-tab en het Dashboard. Dit is een lichte drempel tegen per ongeluk klikken — geen volwaardige beveiliging tegen iemand die echt probeert in te breken.</p>
-      <div class="row">
+      <div class="row" style="margin-top:10px;">
         <div class="field">
-          <label for="s-pin">Wachtwoord</label>
-          <input type="password" id="s-pin" placeholder="Laat leeg voor geen wachtwoord">
+          <label for="s-slug">Link voor klanten (deel van de URL)</label>
+          <input type="text" id="s-slug" placeholder="bv. floors-cuisine">
+        </div>
+        <div class="field" style="max-width:160px;">
+          <label for="s-bgcolor">Achtergrondkleur</label>
+          <input type="color" id="s-bgcolor">
         </div>
       </div>
       <div class="row" style="margin-top:12px;">
-        <button class="primary" id="btn-save-pin">Wachtwoord opslaan</button>
+        <button class="primary" id="btn-save-store">Profiel opslaan</button>
       </div>
     </div>
 
@@ -501,11 +536,6 @@
 
   <section id="view-klant" class="view">
 
-    <div class="card" id="store-not-found" style="display:none;background:#FBEAEA;border-color:var(--otro-coral);">
-      <strong style="color:var(--otro-coral);">Winkel niet gevonden</strong>
-      <p class="muted" style="margin:6px 0 0;">Deze link klopt niet (meer). Vraag de winkel om de juiste klantlink.</p>
-    </div>
-
     <h2>Over de winkel</h2>
     <div class="card" id="store-info-card"></div>
 
@@ -545,20 +575,6 @@
 
   </section>
 
-  <section id="view-leveren" class="view">
-
-    <h2>Nog te leveren</h2>
-    <p class="muted">Bestellingen op volgorde van tijd. Vink af zodra iets is afgeleverd of afgehaald — die verdwijnt dan uit deze lijst.</p>
-    <div class="row" style="margin:0 0 12px;">
-      <label class="toggle">
-        <input type="checkbox" id="leveren-show-all">
-        Ook al geleverde bestellingen tonen
-      </label>
-    </div>
-    <div id="leveren-list"></div>
-
-  </section>
-
   <section id="view-dashboard" class="view">
 
     <h2>Overzicht</h2>
@@ -588,72 +604,41 @@
     </div>
 
   </section>
+
+  </div><!-- /app-shell -->
+
+  <div style="text-align:center;padding:18px 0 4px;">
+    <span class="muted" id="app-version" style="font-size:0.72rem;"></span>
+  </div>
 </main>
-
-<div id="pin-overlay" style="display:none;position:fixed;inset:0;background:rgba(36,33,29,0.55);z-index:60;align-items:center;justify-content:center;padding:20px;">
-  <div class="card" style="max-width:320px;width:100%;margin:0;">
-    <h2 style="margin-top:0;">Winkel-toegang</h2>
-    <p class="muted" style="margin:0 0 10px;">Voer het wachtwoord in om bij Winkel-beheer of Dashboard te komen.</p>
-    <input type="password" id="pin-input" placeholder="Wachtwoord">
-    <p class="muted" id="pin-error" style="color:var(--otro-coral);display:none;margin:8px 0 0;">Onjuist wachtwoord.</p>
-    <div class="row" style="margin-top:12px;">
-      <button class="primary" id="pin-submit" style="flex:1;">Ontgrendel</button>
-      <button class="secondary" id="pin-cancel">Annuleer</button>
-    </div>
-  </div>
-</div>
-
-<div id="login-overlay" style="display:none;position:fixed;inset:0;background:rgba(36,33,29,0.55);z-index:60;align-items:center;justify-content:center;padding:20px;">
-  <div class="card" style="max-width:320px;width:100%;margin:0;">
-    <h2 style="margin-top:0;" id="auth-title">Inloggen — Winkel</h2>
-    <p class="muted" style="margin:0 0 10px;" id="auth-subtitle">Log in om bij Winkel-beheer of Dashboard te komen.</p>
-    <div id="signup-extra-fields" style="display:none;">
-      <label for="signup-storename">Winkelnaam</label>
-      <input type="text" id="signup-storename" placeholder="bv. Floor's Cuisine" style="margin-bottom:8px;">
-      <label for="signup-slug">Linknaam (voor klantlink, alleen a-z 0-9 en -)</label>
-      <input type="text" id="signup-slug" placeholder="bv. floors-cuisine" style="margin-bottom:8px;">
-    </div>
-    <label for="login-email">E-mail</label>
-    <input type="text" id="login-email" placeholder="jij@voorbeeld.com" style="margin-bottom:8px;">
-    <label for="login-password">Wachtwoord</label>
-    <input type="password" id="login-password">
-    <p class="muted" id="login-error" style="color:var(--otro-coral);display:none;margin:8px 0 0;">Inloggen mislukt — check e-mail en wachtwoord.</p>
-    <div class="row" style="margin-top:12px;">
-      <button class="primary" id="login-submit" style="flex:1;">Inloggen</button>
-      <button class="secondary" id="login-cancel">Annuleer</button>
-    </div>
-    <p class="muted" style="margin-top:10px;text-align:center;">
-      <a href="#" id="toggle-auth-mode">Nog geen winkel? Registreer hier</a>
-    </p>
-  </div>
-</div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-// ---------- opslag: gebruikt Claude's ingebouwde opslag indien beschikbaar,
-// anders (bv. gehost op Cloudflare Pages) valt terug op Supabase ----------
-let sb = null;
-if(!window.storage){
-  const SUPABASE_URL = 'https://yyxbgpwdcmkfpzdzwxua.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_ebuXozx5GMOHkBgsK03ACQ_YTZYAsri';
-  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// ---------- versie ----------
+// Verhoog dit nummer (en de datum) bij elke wijziging aan dit bestand, zodat altijd
+// duidelijk is welke versie er precies draait / gedeeld is.
+const APP_VERSION = '1.1.0';
+const APP_VERSION_DATE = '2026-08-18';
+const APP_VERSION_NOTE = 'Naam gewijzigd van "Menu di Siman" naar "Digital Menu Maker" in titel, header en footer';
+document.addEventListener('DOMContentLoaded', ()=>{
+  const el = document.getElementById('app-version');
+  if(el) el.textContent = `Digital Menu Maker · v${APP_VERSION} · ${APP_VERSION_DATE}`;
+});
 
-  window.storage = {
-    async get(key){
-      const { data, error } = await sb.from('app_data').select('value').eq('key', key).maybeSingle();
-      if(error) throw error;
-      if(!data) return null;
-      return { key, value: JSON.stringify(data.value) };
-    },
-    async set(key, value){
-      const parsed = JSON.parse(value);
-      const { error } = await sb.from('app_data').upsert({ key, value: parsed, updated_at: new Date().toISOString() });
-      if(error) throw error;
-      return { key, value };
-    }
-  };
-}
+// ---------- Supabase (echte multi-tenant backend: Auth + relationele 'stores' tabel + gedeelde app_data) ----------
+const SUPABASE_URL = 'https://yyxbgpwdcmkfpzdzwxua.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_ebuXozx5GMOHkBgsK03ACQ_YTZYAsri';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const urlParams = new URLSearchParams(window.location.search);
+const winkelSlug = urlParams.get('winkel');
+const appMode = winkelSlug ? 'customer' : 'owner';
+
+let session = null;
+let store = null;      // actieve winkel: {id, slug, name, phone, address, hours, description, logo, bg_color}
+let storeId = null;
+let authMode = 'login';
 
 const skylineColors = ['#1B4B6B','#E0A72E','#E8637A','#2F7A6B','#C8874A','#3E6E8E','#D9527A'];
 const skylineHeights = [22,30,18,34,24,28,20,32,26];
@@ -665,34 +650,24 @@ skylineHeights.forEach((h,i)=>{
   sk.appendChild(b);
 });
 
-// ---------- multi-tenant: welke winkel is er nu actief? ----------
-const urlParams = new URLSearchParams(window.location.search);
-const isKlantOnly = urlParams.has('klant');
-const urlStoreSlug = (urlParams.get('winkel') || '').trim();
-
-let activeStoreId = null;   // de winkel waarvan we nu menu/bestellingen/tegoed tonen
-let activeStoreSlug = '';
-let myStoreId = null;       // gezet na inloggen: jouw eigen winkel
-let myStoreSlug = '';
-
-async function resolveStoreBySlug(slug){
-  if(!sb || !slug) return null;
-  const { data } = await sb.from('stores').select('id,slug,name').eq('slug', slug).maybeSingle();
-  return data || null;
-}
-
 let menuItems = [];
 let orders = [];
 let creditBalances = {}; // phone -> { name, balance }
-let storeInfo = { name:'', phone:'', address:'', hours:'', description:'', logo:'' };
 let purchases = []; // { id, product, amount, date }
 let cart = {}; // itemId -> qty
 let selectedPayment = 'Contant';
 
 function normPhone(p){ return (p||'').replace(/\s+/g,'').trim(); }
-
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function money(n){ return 'ƒ ' + Number(n).toFixed(2); }
+
+function slugify(str){
+  return (str||'').toString().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/(^-+|-+$)/g,'')
+    .slice(0,60) || 'winkel';
+}
 
 function showToast(msg){
   const t = document.getElementById('toast');
@@ -701,71 +676,54 @@ function showToast(msg){
   setTimeout(()=>t.classList.remove('show'), 2200);
 }
 
-async function loadStoreData(storeId){
-  try{
-    const [m, o, c, s, p] = await Promise.all([
-      window.storage.get(storeId+':menu-items', true).catch(()=>null),
-      window.storage.get(storeId+':orders', true).catch(()=>null),
-      window.storage.get(storeId+':credit-balances', true).catch(()=>null),
-      window.storage.get(storeId+':store-info', true).catch(()=>null),
-      window.storage.get(storeId+':purchases', true).catch(()=>null),
-    ]);
-    menuItems = m ? JSON.parse(m.value) : [];
-    orders = o ? JSON.parse(o.value) : [];
-    creditBalances = c ? JSON.parse(c.value) : {};
-    storeInfo = s ? JSON.parse(s.value) : { name:'', phone:'', address:'', hours:'', description:'', logo:'' };
-    purchases = p ? JSON.parse(p.value) : [];
-  }catch(e){
-    console.error('Laden mislukt', e);
-    showToast('Laden mislukt — probeer de pagina te vernieuwen');
-  }
+// ---------- weergave van de juiste "pagina" (login / onboarding / niet-gevonden / app) ----------
+function showView(which){
+  document.getElementById('view-auth').classList.toggle('active', which==='auth');
+  document.getElementById('view-onboarding').classList.toggle('active', which==='onboarding');
+  document.getElementById('view-store-not-found').classList.toggle('active', which==='store-not-found');
+  document.getElementById('app-shell').style.display = which==='main' ? '' : 'none';
+  document.getElementById('main-tabs').style.display = which==='main' ? '' : 'none';
 }
 
-async function loadAll(){
-  if(urlStoreSlug){
-    const store = await resolveStoreBySlug(urlStoreSlug);
-    if(store){ activeStoreId = store.id; activeStoreSlug = store.slug; }
+// ---------- thema per winkel: logo + achtergrondkleur ----------
+function applyTheme(s){
+  document.documentElement.style.setProperty('--paper', (s && s.bg_color) || '#FBF6EC');
+  const headerLogo = document.getElementById('header-logo');
+  if(s && s.logo){
+    headerLogo.src = s.logo;
+    headerLogo.style.display = 'block';
+  } else {
+    headerLogo.style.display = 'none';
   }
-  if(sb){
-    const { data: { session } } = await sb.auth.getSession();
-    if(session) await afterLogin(session, false);
-  }
-  if(activeStoreId){
-    await loadStoreData(activeStoreId);
-  }
-  document.getElementById('loading').style.display = 'none';
-  renderAll();
-  const notFound = document.getElementById('store-not-found');
-  if(notFound) notFound.style.display = (isKlantOnly && !activeStoreId) ? 'block' : 'none';
+  document.title = s && s.name ? (s.name + ' — Digital Menu Maker') : 'Digital Menu Maker';
 }
 
-async function afterLogin(session, doLoad){
-  myStoreId = session.user.id;
-  winkelUnlocked = true;
-  const { data: storeRow } = await sb.from('stores').select('slug,name').eq('id', myStoreId).maybeSingle();
-  myStoreSlug = storeRow ? storeRow.slug : '';
-  if(!activeStoreId){
-    activeStoreId = myStoreId;
-    activeStoreSlug = myStoreSlug;
-  }
-  if(doLoad !== false){
-    await loadStoreData(activeStoreId);
-  }
-  refreshKlantLink();
+// ---------- data per winkel (gedeelde app_data-tabel, sleutels beginnen met "<store-id>:") ----------
+async function getData(name){
+  const { data, error } = await sb.from('app_data').select('value').eq('key', storeId + ':' + name).maybeSingle();
+  if(error) throw error;
+  return data ? data.value : null;
 }
+async function setData(name, value){
+  const { error } = await sb.from('app_data').upsert({ key: storeId + ':' + name, value, updated_at: new Date().toISOString() });
+  if(error) throw error;
+}
+async function saveMenu(){ await setData('menu-items', menuItems); }
+async function saveOrders(){ await setData('orders', orders); }
+async function saveCredit(){ await setData('credit-balances', creditBalances); }
+async function savePurchases(){ await setData('purchases', purchases); }
 
-async function saveMenu(){ await window.storage.set(activeStoreId+':menu-items', JSON.stringify(menuItems), true); }
-async function saveOrders(){ await window.storage.set(activeStoreId+':orders', JSON.stringify(orders), true); }
-async function saveCredit(){ await window.storage.set(activeStoreId+':credit-balances', JSON.stringify(creditBalances), true); }
-async function saveStoreInfo(){ await window.storage.set(activeStoreId+':store-info', JSON.stringify(storeInfo), true); }
-async function savePurchases(){ await window.storage.set(activeStoreId+':purchases', JSON.stringify(purchases), true); }
-async function fetchWinkelPin(){
-  try{
-    const p = await window.storage.get((activeStoreId||'')+':store-pin', true).catch(()=>null);
-    return p ? (JSON.parse(p.value).pin || '') : '';
-  }catch(e){
-    return '';
-  }
+async function loadTenantData(){
+  const [m,o,c,p] = await Promise.all([
+    getData('menu-items').catch(()=>null),
+    getData('orders').catch(()=>null),
+    getData('credit-balances').catch(()=>null),
+    getData('purchases').catch(()=>null),
+  ]);
+  menuItems = m || [];
+  orders = o || [];
+  creditBalances = c || {};
+  purchases = p || [];
 }
 
 function renderAll(){
@@ -778,8 +736,207 @@ function renderAll(){
   renderStoreForm();
   renderStoreInfoCard();
   renderPurchasesTable();
-  renderLeverenList();
+  updateKlantLink();
 }
+
+// ---------- opstarten ----------
+async function init(){
+  if(appMode === 'customer'){
+    await initCustomerMode();
+  } else {
+    await initOwnerMode();
+  }
+  document.getElementById('loading').style.display = 'none';
+}
+
+async function initCustomerMode(){
+  const { data, error } = await sb.from('stores').select('*').eq('slug', winkelSlug).maybeSingle();
+  if(error || !data){
+    showView('store-not-found');
+    return;
+  }
+  store = data;
+  storeId = store.id;
+  applyTheme(store);
+  await loadTenantData();
+  renderAll();
+  document.getElementById('tab-winkel').style.display = 'none';
+  document.getElementById('tab-dashboard').style.display = 'none';
+  document.getElementById('main-tabs').style.justifyContent = 'center';
+  document.getElementById('btn-logout').style.display = 'none';
+  showView('main');
+  switchTab('klant');
+}
+
+async function initOwnerMode(){
+  const { data: sessionData } = await sb.auth.getSession();
+  session = sessionData.session;
+  if(!session){
+    showView('auth');
+    return;
+  }
+  await resolveOwnStore();
+}
+
+async function resolveOwnStore(){
+  const { data, error } = await sb.from('stores').select('*').eq('id', session.user.id).maybeSingle();
+  if(error){
+    console.error(error);
+    showToast('Kon winkelgegevens niet laden');
+    showView('auth');
+    return;
+  }
+  if(!data){
+    showView('onboarding');
+    return;
+  }
+  store = data;
+  storeId = store.id;
+  applyTheme(store);
+  await loadTenantData();
+  renderAll();
+  document.getElementById('btn-logout').style.display = 'inline-block';
+  showView('main');
+  switchTab('winkel');
+}
+
+// ---------- inloggen / registreren ----------
+document.getElementById('auth-mode-select').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-val]');
+  if(!btn) return;
+  authMode = btn.dataset.val;
+  [...document.querySelectorAll('#auth-mode-select button')].forEach(b=>b.classList.toggle('selected', b===btn));
+  document.getElementById('btn-auth-submit').textContent = authMode === 'login' ? 'Inloggen' : 'Registreren';
+  document.getElementById('auth-message').textContent = '';
+});
+
+document.getElementById('btn-auth-submit').addEventListener('click', async ()=>{
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  const msg = document.getElementById('auth-message');
+  if(!email || !password){
+    msg.textContent = 'Vul e-mail en wachtwoord in.';
+    return;
+  }
+  msg.textContent = 'Even geduld…';
+  try{
+    if(authMode === 'login'){
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if(error) throw error;
+      session = data.session;
+      msg.textContent = '';
+      document.getElementById('loading').style.display = 'block';
+      await resolveOwnStore();
+      document.getElementById('loading').style.display = 'none';
+    } else {
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if(error) throw error;
+      if(data.session){
+        session = data.session;
+        msg.textContent = '';
+        document.getElementById('loading').style.display = 'block';
+        await resolveOwnStore();
+        document.getElementById('loading').style.display = 'none';
+      } else {
+        msg.textContent = 'Check je e-mail om je account te bevestigen. Log daarna hier in.';
+      }
+    }
+  }catch(err){
+    console.error(err);
+    msg.textContent = err.message || 'Er ging iets mis. Probeer het opnieuw.';
+  }
+});
+
+document.getElementById('btn-logout').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  session = null;
+  store = null;
+  storeId = null;
+  document.getElementById('btn-logout').style.display = 'none';
+  document.getElementById('auth-email').value = '';
+  document.getElementById('auth-password').value = '';
+  document.getElementById('auth-message').textContent = '';
+  applyTheme(null);
+  showView('auth');
+});
+
+// ---------- onboarding: eerste keer inloggen, winkel aanmaken ----------
+document.getElementById('ob-naam').addEventListener('input', ()=>{
+  const slugField = document.getElementById('ob-slug');
+  if(!slugField.dataset.touched){
+    slugField.value = slugify(document.getElementById('ob-naam').value);
+  }
+  updateSlugPreview();
+});
+document.getElementById('ob-slug').addEventListener('input', (e)=>{
+  e.target.dataset.touched = '1';
+  updateSlugPreview();
+});
+function updateSlugPreview(){
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.searchParams.set('winkel', slugify(document.getElementById('ob-slug').value) || '…');
+  document.getElementById('ob-slug-preview').textContent = url.toString();
+}
+
+document.getElementById('btn-onboard-submit').addEventListener('click', async ()=>{
+  const naam = document.getElementById('ob-naam').value.trim();
+  const slug = slugify(document.getElementById('ob-slug').value || naam);
+  const msg = document.getElementById('onboard-message');
+  if(!naam){
+    msg.textContent = 'Vul een winkelnaam in.';
+    return;
+  }
+  msg.textContent = 'Winkel aanmaken…';
+  try{
+    const { data, error } = await sb.from('stores').insert({
+      id: session.user.id,
+      slug,
+      name: naam,
+      bg_color: '#FBF6EC'
+    }).select().single();
+    if(error){
+      if(error.code === '23505'){
+        msg.textContent = 'Deze link is al in gebruik, kies een andere.';
+      } else {
+        throw error;
+      }
+      return;
+    }
+    store = data;
+    storeId = store.id;
+    applyTheme(store);
+    await loadTenantData();
+    renderAll();
+    document.getElementById('btn-logout').style.display = 'inline-block';
+    showView('main');
+    switchTab('winkel');
+    showToast('Winkel aangemaakt!');
+  }catch(err){
+    console.error(err);
+    msg.textContent = err.message || 'Aanmaken mislukt, probeer opnieuw.';
+  }
+});
+
+// ---------- WINKEL: link voor klanten ----------
+function updateKlantLink(){
+  const linkInput = document.getElementById('klant-link');
+  if(!linkInput || !store || !store.slug) return;
+  const url = new URL(window.location.href);
+  url.search = '';
+  url.searchParams.set('winkel', store.slug);
+  linkInput.value = url.toString();
+}
+document.getElementById('btn-copy-klant-link').addEventListener('click', async ()=>{
+  const linkInput = document.getElementById('klant-link');
+  try{
+    await navigator.clipboard.writeText(linkInput.value);
+    showToast('Link gekopieerd');
+  }catch(e){
+    linkInput.select();
+    showToast('Selecteer en kopieer de link handmatig');
+  }
+});
 
 // ---------- WINKEL: inkopen ----------
 function todayStr(){
@@ -830,38 +987,30 @@ document.querySelector('#purchases-table').addEventListener('click', async (e)=>
   }
 });
 
-// ---------- WINKEL: profiel ----------
+// ---------- WINKEL: profiel (opgeslagen in de 'stores' tabel, niet in app_data) ----------
 function renderStoreForm(){
-  document.getElementById('s-naam').value = storeInfo.name || '';
-  document.getElementById('s-tel').value = storeInfo.phone || '';
-  document.getElementById('s-adres').value = storeInfo.address || '';
-  document.getElementById('s-uren').value = storeInfo.hours || '';
-  document.getElementById('s-beschrijving').value = storeInfo.description || '';
+  if(!store) return;
+  document.getElementById('s-naam').value = store.name || '';
+  document.getElementById('s-tel').value = store.phone || '';
+  document.getElementById('s-adres').value = store.address || '';
+  document.getElementById('s-uren').value = store.hours || '';
+  document.getElementById('s-beschrijving').value = store.description || '';
+  document.getElementById('s-slug').value = store.slug || '';
+  document.getElementById('s-bgcolor').value = store.bg_color || '#FBF6EC';
   renderLogoPreview();
 }
-
-document.getElementById('btn-save-pin').addEventListener('click', async ()=>{
-  const pin = document.getElementById('s-pin').value;
-  await window.storage.set('store-pin', JSON.stringify({pin}), true);
-  winkelPin = pin;
-  document.getElementById('s-pin').value = pin;
-  showToast(pin ? 'Wachtwoord opgeslagen' : 'Wachtwoord verwijderd — Winkel-tab is nu open zonder wachtwoord');
-});
 
 function renderLogoPreview(){
   const img = document.getElementById('logo-preview');
   const placeholder = document.getElementById('logo-placeholder');
-  const headerLogo = document.getElementById('header-logo');
-  if(storeInfo.logo){
-    img.src = storeInfo.logo;
+  const logo = store && store.logo;
+  if(logo){
+    img.src = logo;
     img.style.display = 'block';
     placeholder.style.display = 'none';
-    headerLogo.src = storeInfo.logo;
-    headerLogo.style.display = 'block';
   } else {
     img.style.display = 'none';
     placeholder.style.display = 'block';
-    headerLogo.style.display = 'none';
   }
 }
 
@@ -897,7 +1046,7 @@ document.getElementById('s-logo-input').addEventListener('change', async (e)=>{
   const file = e.target.files[0];
   if(!file) return;
   try{
-    storeInfo.logo = await resizeImageToDataUrl(file, 240);
+    store.logo = await resizeImageToDataUrl(file, 240);
     renderLogoPreview();
     showToast('Logo klaar — klik op "Profiel opslaan" om te bewaren');
   }catch(err){
@@ -908,44 +1057,70 @@ document.getElementById('s-logo-input').addEventListener('change', async (e)=>{
 });
 
 document.getElementById('btn-remove-logo').addEventListener('click', async ()=>{
-  storeInfo.logo = '';
+  store.logo = '';
   renderLogoPreview();
-  await saveStoreInfo();
-  renderStoreInfoCard();
-  showToast('Logo verwijderd');
+  try{
+    const { error } = await sb.from('stores').update({ logo: '' }).eq('id', storeId);
+    if(error) throw error;
+    applyTheme(store);
+    renderStoreInfoCard();
+    showToast('Logo verwijderd');
+  }catch(err){
+    console.error(err);
+    showToast('Verwijderen mislukt');
+  }
 });
 
 document.getElementById('btn-save-store').addEventListener('click', async ()=>{
-  storeInfo = {
+  const newSlug = slugify(document.getElementById('s-slug').value || document.getElementById('s-naam').value);
+  const updated = {
     name: document.getElementById('s-naam').value.trim(),
     phone: document.getElementById('s-tel').value.trim(),
     address: document.getElementById('s-adres').value.trim(),
     hours: document.getElementById('s-uren').value.trim(),
     description: document.getElementById('s-beschrijving').value.trim(),
-    logo: storeInfo.logo || '',
+    slug: newSlug,
+    bg_color: document.getElementById('s-bgcolor').value || '#FBF6EC',
+    logo: store.logo || '',
   };
-  await saveStoreInfo();
-  renderStoreInfoCard();
-  renderLogoPreview();
-  showToast('Winkelprofiel opgeslagen');
+  try{
+    const { data, error } = await sb.from('stores').update(updated).eq('id', storeId).select().single();
+    if(error){
+      if(error.code === '23505'){
+        showToast('Deze link is al in gebruik door een andere winkel — kies een andere');
+        return;
+      }
+      throw error;
+    }
+    store = data;
+    applyTheme(store);
+    renderStoreInfoCard();
+    renderLogoPreview();
+    updateKlantLink();
+    showToast('Winkelprofiel opgeslagen');
+  }catch(err){
+    console.error(err);
+    showToast('Opslaan mislukt');
+  }
 });
 
 function renderStoreInfoCard(){
   const wrap = document.getElementById('store-info-card');
-  if(!storeInfo.name && !storeInfo.description && !storeInfo.logo){
+  if(!store) { wrap.innerHTML = ''; return; }
+  if(!store.name && !store.description && !store.logo){
     wrap.innerHTML = '<div class="empty">De winkel heeft nog geen profiel ingevuld.</div>';
     return;
   }
-  const logoHtml = storeInfo.logo
-    ? `<img src="${storeInfo.logo}" style="width:64px;height:64px;border-radius:12px;object-fit:cover;float:left;margin-right:12px;">`
+  const logoHtml = store.logo
+    ? `<img src="${store.logo}" style="width:64px;height:64px;border-radius:12px;object-fit:cover;float:left;margin-right:12px;">`
     : '';
   wrap.innerHTML = `
     ${logoHtml}
-    <div class="item-name" style="font-size:1.1rem;">${escapeHtml(storeInfo.name || 'Winkel')}</div>
-    ${storeInfo.description ? `<p style="margin:6px 0;">${escapeHtml(storeInfo.description)}</p>` : ''}
-    <p class="muted" style="margin:2px 0;">${escapeHtml(storeInfo.address || '')}</p>
-    <p class="muted" style="margin:2px 0;">${storeInfo.hours ? 'Open: ' + escapeHtml(storeInfo.hours) : ''}</p>
-    <p class="muted" style="margin:2px 0;">${storeInfo.phone ? 'Tel: ' + escapeHtml(storeInfo.phone) : ''}</p>
+    <div class="item-name" style="font-size:1.1rem;">${escapeHtml(store.name || 'Winkel')}</div>
+    ${store.description ? `<p style="margin:6px 0;">${escapeHtml(store.description)}</p>` : ''}
+    <p class="muted" style="margin:2px 0;">${escapeHtml(store.address || '')}</p>
+    <p class="muted" style="margin:2px 0;">${store.hours ? 'Open: ' + escapeHtml(store.hours) : ''}</p>
+    <p class="muted" style="margin:2px 0;">${store.phone ? 'Tel: ' + escapeHtml(store.phone) : ''}</p>
     <div style="clear:both;"></div>
   `;
 }
@@ -1162,82 +1337,9 @@ document.getElementById('orders-list').addEventListener('change', async (e)=>{
       await saveOrders();
       renderOrdersList();
       renderMyOrders();
-      renderLeverenList();
     }
   }
 });
-
-// ---------- WINKEL: leveren (mobielvriendelijk) ----------
-function renderLeverenList(){
-  const wrap = document.getElementById('leveren-list');
-  if(!wrap) return;
-  const showAll = document.getElementById('leveren-show-all').checked;
-  let list = [...orders].sort((a,b)=> a.timestamp - b.timestamp);
-  if(!showAll) list = list.filter(o=>o.status !== 'Afgehaald');
-
-  if(list.length === 0){
-    wrap.innerHTML = `<div class="empty">${showAll ? 'Nog geen bestellingen.' : 'Alles is geleverd — niets openstaand.'}</div>`;
-    return;
-  }
-  wrap.innerHTML = '';
-  list.forEach(o=>{
-    const delivered = o.status === 'Afgehaald';
-    const itemsStr = o.items.map(it=>`${it.qty}× ${escapeHtml(it.name)}`).join(', ');
-    const el = document.createElement('div');
-    el.className = 'card order-card status-' + o.status;
-    el.innerHTML = `
-      <div class="order-head">
-        <span class="deliver-time">${new Date(o.timestamp).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})}</span>
-        <span class="muted">${new Date(o.timestamp).toLocaleDateString('nl-NL')}</span>
-      </div>
-      <div style="font-weight:600;margin-top:2px;">${escapeHtml(o.customer)} — ${escapeHtml(o.phone||'')}</div>
-      <div class="order-items">${itemsStr}</div>
-      <div class="row" style="justify-content:space-between;">
-        <span class="muted">Betaling: ${escapeHtml(o.payment)}</span>
-        <strong>${money(o.total)}</strong>
-      </div>
-      <button class="deliver-btn ${delivered?'done':''}" data-id="${o.id}">
-        ${delivered ? '✓ Geleverd' : 'Markeer als geleverd'}
-      </button>
-    `;
-    wrap.appendChild(el);
-  });
-}
-
-document.getElementById('leveren-list').addEventListener('click', async (e)=>{
-  const btn = e.target.closest('.deliver-btn');
-  if(!btn) return;
-  const id = btn.dataset.id;
-  const o = orders.find(x=>x.id===id);
-  if(!o) return;
-  const wasDelivered = o.status === 'Afgehaald';
-  o.status = wasDelivered ? 'Klaar' : 'Afgehaald';
-  await saveOrders();
-  renderLeverenList();
-  renderOrdersList();
-  renderMyOrders();
-  if(!wasDelivered) sendWhatsappReady(o);
-});
-
-async function sendWhatsappReady(order){
-  if(!sb || !order.phone) return;
-  try{
-    const { data, error } = await sb.functions.invoke('notify-whatsapp', {
-      body: { phone: order.phone, customerName: order.customer, storeName: storeInfo.name }
-    });
-    if(error || (data && data.error)){
-      console.error('WhatsApp-notificatie mislukt', error || data.error);
-      showToast('Bestelling afgevinkt — WhatsApp-bericht kon niet verstuurd worden (check Twilio-instellingen)');
-    } else {
-      showToast('Bestelling afgevinkt — WhatsApp-bericht verstuurd');
-    }
-  }catch(e){
-    console.error('WhatsApp-notificatie mislukt', e);
-    showToast('Bestelling afgevinkt — WhatsApp-bericht kon niet verstuurd worden');
-  }
-}
-
-document.getElementById('leveren-show-all').addEventListener('change', renderLeverenList);
 
 // ---------- WINKEL: credit ----------
 function renderCreditTable(){
@@ -1511,241 +1613,17 @@ function renderDashboard(){
 }
 
 // ---------- tabs ----------
-
-function klantLinkUrl(){
-  const url = new URL(window.location.href);
-  url.search = '';
-  url.searchParams.set('klant', '1');
-  url.searchParams.set('winkel', myStoreSlug || '');
-  return url.toString();
-}
-
-function refreshKlantLink(){
-  const linkInput = document.getElementById('klant-link');
-  if(linkInput && myStoreSlug) linkInput.value = klantLinkUrl();
-}
-
-if(!isKlantOnly){
-  const linkInput = document.getElementById('klant-link');
-  if(linkInput){
-    linkInput.value = myStoreSlug ? klantLinkUrl() : 'Log eerst in om je klantlink te zien';
-    document.getElementById('btn-copy-klant-link').addEventListener('click', async ()=>{
-      if(!myStoreSlug){ showToast('Log eerst in bij Winkel om je klantlink te zien'); return; }
-      try{
-        await navigator.clipboard.writeText(linkInput.value);
-        showToast('Link gekopieerd');
-      }catch(e){
-        linkInput.select();
-        showToast('Selecteer en kopieer de link handmatig');
-      }
-    });
-  }
-}
-
-document.getElementById('tab-winkel').addEventListener('click', ()=>requestWinkelAccess('winkel'));
+document.getElementById('tab-winkel').addEventListener('click', ()=>switchTab('winkel'));
 document.getElementById('tab-klant').addEventListener('click', ()=>switchTab('klant'));
-document.getElementById('tab-leveren').addEventListener('click', ()=>requestWinkelAccess('leveren'));
-document.getElementById('tab-dashboard').addEventListener('click', ()=>requestWinkelAccess('dashboard'));
-
-let winkelPin = null;
-let winkelUnlocked = false;
-let pendingTab = null;
-
-async function requestWinkelAccess(targetTab){
-  if(isKlantOnly) return;
-  if(winkelUnlocked){
-    switchTab(targetTab);
-    if(targetTab==='dashboard') renderDashboard();
-    if(targetTab==='leveren') renderLeverenList();
-    return;
-  }
-  pendingTab = targetTab;
-
-  if(sb){
-    // Live-versie (Supabase): echte account-login, gecontroleerd door de database zelf.
-    const { data: { session } } = await sb.auth.getSession();
-    if(session){
-      if(!myStoreId) await afterLogin(session, true);
-      winkelUnlocked = true;
-      switchTab(targetTab);
-      if(targetTab==='dashboard') renderDashboard();
-    if(targetTab==='leveren') renderLeverenList();
-      return;
-    }
-    document.getElementById('login-error').style.display = 'none';
-    document.getElementById('login-email').value = '';
-    document.getElementById('login-password').value = '';
-    document.getElementById('login-overlay').style.display = 'flex';
-    document.getElementById('login-email').focus();
-    return;
-  }
-
-  // Claude-preview zonder Supabase: simpel wachtwoordveld als terugval.
-  if(winkelPin === null) winkelPin = await fetchWinkelPin();
-  if(!winkelPin){
-    winkelUnlocked = true;
-    document.getElementById('s-pin').value = '';
-    switchTab(targetTab);
-    if(targetTab==='dashboard') renderDashboard();
-    if(targetTab==='leveren') renderLeverenList();
-    return;
-  }
-  document.getElementById('pin-error').style.display = 'none';
-  document.getElementById('pin-input').value = '';
-  document.getElementById('pin-overlay').style.display = 'flex';
-  document.getElementById('pin-input').focus();
-}
-
-document.getElementById('pin-submit').addEventListener('click', ()=>{
-  const val = document.getElementById('pin-input').value;
-  if(val === winkelPin){
-    winkelUnlocked = true;
-    document.getElementById('pin-overlay').style.display = 'none';
-    document.getElementById('s-pin').value = winkelPin;
-    switchTab(pendingTab);
-    if(pendingTab==='dashboard') renderDashboard();
-  } else {
-    document.getElementById('pin-error').style.display = 'block';
-  }
-});
-document.getElementById('pin-cancel').addEventListener('click', ()=>{
-  document.getElementById('pin-overlay').style.display = 'none';
-});
-document.getElementById('pin-input').addEventListener('keydown', (e)=>{
-  if(e.key === 'Enter') document.getElementById('pin-submit').click();
-});
-
-let authMode = 'login';
-
-document.getElementById('toggle-auth-mode').addEventListener('click', (e)=>{
-  e.preventDefault();
-  authMode = (authMode === 'login') ? 'signup' : 'login';
-  document.getElementById('signup-extra-fields').style.display = authMode === 'signup' ? 'block' : 'none';
-  document.getElementById('auth-title').textContent = authMode === 'signup' ? 'Nieuwe winkel registreren' : 'Inloggen — Winkel';
-  document.getElementById('auth-subtitle').textContent = authMode === 'signup'
-    ? 'Maak een account voor je eigen winkel aan.'
-    : 'Log in om bij Winkel-beheer of Dashboard te komen.';
-  document.getElementById('login-submit').textContent = authMode === 'signup' ? 'Registreren' : 'Inloggen';
-  document.getElementById('toggle-auth-mode').textContent = authMode === 'signup' ? 'Heb je al een winkel? Log hier in' : 'Nog geen winkel? Registreer hier';
-  document.getElementById('login-error').style.display = 'none';
-});
-
-document.getElementById('login-submit').addEventListener('click', async ()=>{
-  const email = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-password').value;
-  const errEl = document.getElementById('login-error');
-  errEl.style.display = 'none';
-
-  if(!email || !password){
-    errEl.textContent = 'Vul e-mail en wachtwoord in';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  if(authMode === 'signup'){
-    const storeName = document.getElementById('signup-storename').value.trim();
-    const slug = document.getElementById('signup-slug').value.trim().toLowerCase()
-      .replace(/[^a-z0-9-]+/g,'-').replace(/^-+|-+$/g,'');
-    if(!storeName || !slug){
-      errEl.textContent = 'Vul winkelnaam en linknaam in';
-      errEl.style.display = 'block';
-      return;
-    }
-    const { data: signUpData, error: signUpErr } = await sb.auth.signUp({ email, password });
-    if(signUpErr){
-      errEl.textContent = 'Registreren mislukt: ' + signUpErr.message;
-      errEl.style.display = 'block';
-      return;
-    }
-    if(!signUpData.session){
-      document.getElementById('login-overlay').style.display = 'none';
-      showToast('Check je e-mail om je account te bevestigen, log daarna in.');
-      return;
-    }
-    const { error: storeErr } = await sb.from('stores').insert({ id: signUpData.user.id, slug, name: storeName });
-    if(storeErr){
-      errEl.textContent = storeErr.message.includes('duplicate')
-        ? 'Deze linknaam is al bezet, kies een andere.'
-        : 'Kon winkel niet aanmaken: ' + storeErr.message;
-      errEl.style.display = 'block';
-      return;
-    }
-    activeStoreId = signUpData.user.id;
-    activeStoreSlug = slug;
-    storeInfo = { name: storeName, phone:'', address:'', hours:'', description:'', logo:'' };
-    await saveStoreInfo();
-    await afterLogin(signUpData.session, false);
-    renderAll();
-    document.getElementById('login-overlay').style.display = 'none';
-    switchTab(pendingTab || 'winkel');
-    if(pendingTab==='dashboard') renderDashboard();
-    document.getElementById('security-auth-email').textContent = email;
-    showToast('Winkel aangemaakt! Welkom, ' + storeName);
-    return;
-  }
-
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if(error){
-    errEl.textContent = 'Inloggen mislukt — check e-mail en wachtwoord.';
-    errEl.style.display = 'block';
-    return;
-  }
-  await afterLogin(data.session, true);
-  renderAll();
-  document.getElementById('login-overlay').style.display = 'none';
-  switchTab(pendingTab);
-  if(pendingTab==='dashboard') renderDashboard();
-  document.getElementById('security-auth-email').textContent = email;
-  showToast('Ingelogd');
-});
-document.getElementById('login-cancel').addEventListener('click', ()=>{
-  document.getElementById('login-overlay').style.display = 'none';
-});
-document.getElementById('login-password').addEventListener('keydown', (e)=>{
-  if(e.key === 'Enter') document.getElementById('login-submit').click();
-});
-
-async function doLogout(){
-  if(sb) await sb.auth.signOut();
-  winkelUnlocked = false;
-  myStoreId = null;
-  myStoreSlug = '';
-  if(!urlStoreSlug) activeStoreId = null;
-  switchTab('klant');
-  showToast('Uitgelogd');
-}
-
+document.getElementById('tab-dashboard').addEventListener('click', ()=>{ switchTab('dashboard'); renderDashboard(); });
 function switchTab(tab){
-  if(isKlantOnly) tab = 'klant';
+  if(appMode === 'customer') tab = 'klant';
   document.getElementById('view-winkel').classList.toggle('active', tab==='winkel');
   document.getElementById('view-klant').classList.toggle('active', tab==='klant');
-  document.getElementById('view-leveren').classList.toggle('active', tab==='leveren');
   document.getElementById('view-dashboard').classList.toggle('active', tab==='dashboard');
   document.getElementById('tab-winkel').classList.toggle('active', tab==='winkel');
   document.getElementById('tab-klant').classList.toggle('active', tab==='klant');
-  document.getElementById('tab-leveren').classList.toggle('active', tab==='leveren');
   document.getElementById('tab-dashboard').classList.toggle('active', tab==='dashboard');
-}
-if(isKlantOnly){
-  document.getElementById('tab-winkel').style.display = 'none';
-  document.getElementById('tab-leveren').style.display = 'none';
-  document.getElementById('tab-dashboard').style.display = 'none';
-  document.querySelector('nav.tabs').style.justifyContent = 'center';
-}
-switchTab('klant');
-
-if(!isKlantOnly){
-  if(sb){
-    document.getElementById('security-auth-mode').style.display = 'block';
-    document.getElementById('security-pin-mode').style.display = 'none';
-    sb.auth.getSession().then(({data:{session}})=>{
-      document.getElementById('security-auth-email').textContent = session ? session.user.email : '(nog niet ingelogd)';
-    });
-    document.getElementById('btn-logout').addEventListener('click', doLogout);
-  } else {
-    document.getElementById('security-auth-mode').style.display = 'none';
-    document.getElementById('security-pin-mode').style.display = 'block';
-  }
 }
 
 function escapeHtml(str){
@@ -1754,7 +1632,7 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 
-loadAll();
+init();
 </script>
 </body>
 </html>
