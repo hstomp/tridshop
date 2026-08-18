@@ -286,7 +286,7 @@
     <div style="display:flex;align-items:center;gap:14px;min-width:0;">
       <img id="header-logo" style="display:none;width:52px;height:52px;border-radius:10px;object-fit:cover;flex:0 0 auto;">
       <div style="min-width:0;">
-        <h1 style="margin:6px 0 2px;">Digital Menu Maker</h1>
+        <h1 style="margin:6px 0 2px;" id="header-title">Digital Menu Maker</h1>
         <p id="header-sub">Digitale menukaart &amp; bestellen — winkel en klant in één app</p>
       </div>
     </div>
@@ -618,9 +618,9 @@
 // ---------- versie ----------
 // Verhoog dit nummer (en de datum) bij elke wijziging aan dit bestand, zodat altijd
 // duidelijk is welke versie er precies draait / gedeeld is.
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 const APP_VERSION_DATE = '2026-08-18';
-const APP_VERSION_NOTE = 'Naam gewijzigd van "Menu di Siman" naar "Digital Menu Maker" in titel, header en footer';
+const APP_VERSION_NOTE = 'Header toont nu de Winkelnaam i.p.v. "Digital Menu Maker" zodra een winkel is ingelogd of via de klantlink bekeken wordt';
 document.addEventListener('DOMContentLoaded', ()=>{
   const el = document.getElementById('app-version');
   if(el) el.textContent = `Digital Menu Maker · v${APP_VERSION} · ${APP_VERSION_DATE}`;
@@ -689,12 +689,14 @@ function showView(which){
 function applyTheme(s){
   document.documentElement.style.setProperty('--paper', (s && s.bg_color) || '#FBF6EC');
   const headerLogo = document.getElementById('header-logo');
+  const headerTitle = document.getElementById('header-title');
   if(s && s.logo){
     headerLogo.src = s.logo;
     headerLogo.style.display = 'block';
   } else {
     headerLogo.style.display = 'none';
   }
+  headerTitle.textContent = (s && s.name) ? s.name : 'Digital Menu Maker';
   document.title = s && s.name ? (s.name + ' — Digital Menu Maker') : 'Digital Menu Maker';
 }
 
