@@ -41,9 +41,13 @@
     border-radius:3px 3px 0 0;
   }
   header{
-    background:var(--kaya-blue);
+    background-color:var(--kaya-blue);
+    background-size:cover;
+    background-position:center;
+    background-repeat:no-repeat;
     color:var(--paper);
     padding-top:22px;
+    transition:background-color .2s;
   }
   header .inner{
     max-width:880px;
@@ -55,11 +59,13 @@
     font-size:2rem;
     margin:6px 0 2px;
     letter-spacing:0.3px;
+    text-shadow:0 1px 6px rgba(0,0,0,0.35);
   }
   header p{
     margin:0;
     color:#CFE0EA;
     font-size:0.95rem;
+    text-shadow:0 1px 4px rgba(0,0,0,0.35);
   }
   nav.tabs{
     max-width:880px;
@@ -421,6 +427,21 @@
           <input type="color" id="s-bgcolor">
         </div>
       </div>
+      <div class="row" style="margin-top:10px;align-items:flex-start;">
+        <div style="flex:0 0 auto;">
+          <label>Header-achtergrond</label>
+          <div id="header-bg-preview-wrap" style="width:160px;height:70px;border-radius:12px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--kaya-blue);">
+            <span class="muted" id="header-bg-placeholder" style="font-size:0.68rem;text-align:center;color:#CFE0EA;padding:0 6px;">Standaard blauw</span>
+            <img id="header-bg-preview" style="display:none;width:100%;height:100%;object-fit:cover;">
+          </div>
+          <div class="row" style="margin-top:6px;gap:6px;">
+            <label class="secondary" for="s-header-bg-input" style="border:1px solid var(--line);padding:6px 10px;border-radius:8px;cursor:pointer;font-size:0.78rem;background:#fff;">Kies bestand</label>
+            <button class="danger" id="btn-remove-header-bg" type="button">Verwijder</button>
+          </div>
+          <input type="file" id="s-header-bg-input" accept="image/*" style="display:none;">
+          <p class="muted" style="margin:6px 0 0;max-width:220px;">Optioneel: vervang de blauwe header bovenaan door je eigen afbeelding. Alleen zichtbaar voor jouw winkel.</p>
+        </div>
+      </div>
       <div class="row" style="margin-top:12px;">
         <button class="primary" id="btn-save-store">Profiel opslaan</button>
       </div>
@@ -618,9 +639,9 @@
 // ---------- versie ----------
 // Verhoog dit nummer (en de datum) bij elke wijziging aan dit bestand, zodat altijd
 // duidelijk is welke versie er precies draait / gedeeld is.
-const APP_VERSION = '1.2.0';
-const APP_VERSION_DATE = '2026-08-18';
-const APP_VERSION_NOTE = 'Header toont nu de Winkelnaam i.p.v. "Digital Menu Maker" zodra een winkel is ingelogd of via de klantlink bekeken wordt';
+const APP_VERSION = '1.3.0';
+const APP_VERSION_DATE = '2026-08-20';
+const APP_VERSION_NOTE = 'Winkels kunnen nu een eigen header-achtergrondafbeelding instellen in Winkelprofiel (valt terug op standaard blauw)';
 document.addEventListener('DOMContentLoaded', ()=>{
   const el = document.getElementById('app-version');
   if(el) el.textContent = `Digital Menu Maker · v${APP_VERSION} · ${APP_VERSION_DATE}`;
@@ -636,7 +657,7 @@ const winkelSlug = urlParams.get('winkel');
 const appMode = winkelSlug ? 'customer' : 'owner';
 
 let session = null;
-let store = null;      // actieve winkel: {id, slug, name, phone, address, hours, description, logo, bg_color}
+let store = null;      // actieve winkel: {id, slug, name, phone, address, hours, description, logo, bg_color, header_bg}
 let storeId = null;
 let authMode = 'login';
 
@@ -685,9 +706,10 @@ function showView(which){
   document.getElementById('main-tabs').style.display = which==='main' ? '' : 'none';
 }
 
-// ---------- thema per winkel: logo + achtergrondkleur ----------
+// ---------- thema per winkel: logo + achtergrondkleur + header-achtergrond ----------
 function applyTheme(s){
   document.documentElement.style.setProperty('--paper', (s && s.bg_color) || '#FBF6EC');
+  const headerEl = document.querySelector('header');
   const headerLogo = document.getElementById('header-logo');
   const headerTitle = document.getElementById('header-title');
   if(s && s.logo){
@@ -695,6 +717,11 @@ function applyTheme(s){
     headerLogo.style.display = 'block';
   } else {
     headerLogo.style.display = 'none';
+  }
+  if(s && s.header_bg){
+    headerEl.style.backgroundImage = `linear-gradient(rgba(10,20,30,0.42),rgba(10,20,30,0.42)), url('${s.header_bg}')`;
+  } else {
+    headerEl.style.backgroundImage = '';
   }
   headerTitle.textContent = (s && s.name) ? s.name : 'Digital Menu Maker';
   document.title = s && s.name ? (s.name + ' — Digital Menu Maker') : 'Digital Menu Maker';
@@ -1000,6 +1027,7 @@ function renderStoreForm(){
   document.getElementById('s-slug').value = store.slug || '';
   document.getElementById('s-bgcolor').value = store.bg_color || '#FBF6EC';
   renderLogoPreview();
+  renderHeaderBgPreview();
 }
 
 function renderLogoPreview(){
@@ -1016,7 +1044,21 @@ function renderLogoPreview(){
   }
 }
 
-function resizeImageToDataUrl(file, maxSize){
+function renderHeaderBgPreview(){
+  const img = document.getElementById('header-bg-preview');
+  const placeholder = document.getElementById('header-bg-placeholder');
+  const headerBg = store && store.header_bg;
+  if(headerBg){
+    img.src = headerBg;
+    img.style.display = 'block';
+    placeholder.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    placeholder.style.display = 'block';
+  }
+}
+
+function resizeImageToDataUrl(file, maxSize, quality){
   return new Promise((resolve, reject)=>{
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Kon bestand niet lezen'));
@@ -1036,7 +1078,7 @@ function resizeImageToDataUrl(file, maxSize){
         canvas.width = width;
         canvas.height = height;
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.82));
+        resolve(canvas.toDataURL('image/jpeg', quality == null ? 0.82 : quality));
       };
       img.src = reader.result;
     };
@@ -1073,6 +1115,34 @@ document.getElementById('btn-remove-logo').addEventListener('click', async ()=>{
   }
 });
 
+document.getElementById('s-header-bg-input').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    store.header_bg = await resizeImageToDataUrl(file, 900, 0.75);
+    renderHeaderBgPreview();
+    showToast('Header-achtergrond klaar — klik op "Profiel opslaan" om te bewaren');
+  }catch(err){
+    console.error('Header-achtergrond verwerken mislukt', err);
+    showToast('Kon deze afbeelding niet verwerken');
+  }
+  e.target.value = '';
+});
+
+document.getElementById('btn-remove-header-bg').addEventListener('click', async ()=>{
+  store.header_bg = '';
+  renderHeaderBgPreview();
+  try{
+    const { error } = await sb.from('stores').update({ header_bg: '' }).eq('id', storeId);
+    if(error) throw error;
+    applyTheme(store);
+    showToast('Header-achtergrond verwijderd — terug naar standaard blauw');
+  }catch(err){
+    console.error(err);
+    showToast('Verwijderen mislukt');
+  }
+});
+
 document.getElementById('btn-save-store').addEventListener('click', async ()=>{
   const newSlug = slugify(document.getElementById('s-slug').value || document.getElementById('s-naam').value);
   const updated = {
@@ -1084,6 +1154,7 @@ document.getElementById('btn-save-store').addEventListener('click', async ()=>{
     slug: newSlug,
     bg_color: document.getElementById('s-bgcolor').value || '#FBF6EC',
     logo: store.logo || '',
+    header_bg: store.header_bg || '',
   };
   try{
     const { data, error } = await sb.from('stores').update(updated).eq('id', storeId).select().single();
@@ -1098,6 +1169,7 @@ document.getElementById('btn-save-store').addEventListener('click', async ()=>{
     applyTheme(store);
     renderStoreInfoCard();
     renderLogoPreview();
+    renderHeaderBgPreview();
     updateKlantLink();
     showToast('Winkelprofiel opgeslagen');
   }catch(err){
